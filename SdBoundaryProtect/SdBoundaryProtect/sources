@@ -1,0 +1,14 @@
+TARGETNAME=SdBoundaryProtect
+TARGETTYPE=DRIVER
+DRIVERTYPE=FS
+
+
+TARGETLIBS= $(TARGETLIBS) \
+            $(IFSKIT_LIB_PATH)\fltMgr.lib
+
+SOURCES=Public.cpp \
+		KrnlStr.cpp \
+		FileName.cpp \
+		Log.cpp \
+		Minifilter.cpp \
+        SdBoundaryProtect.rc
