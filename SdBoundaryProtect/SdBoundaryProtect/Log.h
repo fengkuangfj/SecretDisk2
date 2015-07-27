@@ -34,12 +34,10 @@
 
 #pragma once
 
-#define MOD_LOG			L"日志"
-#define MEMORY_TAG_LOG	'GOL'			// LOG
-
+#define MOD_LOG						L"日志"
+#define MEMORY_TAG_LOG				'GOL'				// LOG
 #define	EVERY_TIME_LOG_MAX_COUNT	1
 #define MAX_LOG_FILE_SIZE			(9 * 1024 * 1024)
-
 
 typedef struct _LOG_INFO
 {
@@ -47,7 +45,6 @@ typedef struct _LOG_INFO
 
 	LIST_ENTRY	List;
 } LOG_INFO, *PLOG_INFO, *LPLOG_INFO;
-
 
 class CLog
 {

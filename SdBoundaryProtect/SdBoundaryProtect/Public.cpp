@@ -222,7 +222,7 @@ VOID
 					TRUE
 					);
 			} while (STATUS_NO_MEMORY == ntStatus);
-			
+
 			if (!NT_SUCCESS(ntStatus))
 				RtlCopyMemory(wchProcName, L"Proc Error", wcslen(L"Proc Error") * sizeof(WCHAR));
 			else

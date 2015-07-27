@@ -27,13 +27,28 @@
     <ClInclude Include="KrnlStr.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Public.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="Log.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="FileName.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcWhiteList.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DirControlList.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DirHide.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="File.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Comm\Public.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Comm\CommPublic.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -55,6 +70,18 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="FileName.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcWhiteList.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DirControlList.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DirHide.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="File.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

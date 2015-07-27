@@ -34,18 +34,18 @@
 
 #pragma once
 
-#define FILE_NAME_TAG	'MNLF'
+#define MOD_FILE_NAME			L"文件名"
+#define MEMORY_TAG_FILE_NAME	'MNLF'		// FLNM
 
-
-typedef ULONG	NAME_TYPE;
-typedef PULONG	PNAME_TYPE;
-
-#define TYPE_APP		0x00000001
-#define TYPE_SYM		0x00000002
-#define TYPE_DEV		0x00000004
-#define TYPE_UNKNOW		0x00000007
-#define	TYPE_FULL_PATH	0x00000008
-
+typedef enum _NAME_TYPE
+{
+	NAME_TYPE_NULL		= 0x00000000,
+	TYPE_APP			= 0x00000001,
+	TYPE_SYM			= 0x00000002,
+	TYPE_DEV			= 0x00000004,
+	TYPE_UNKNOW			= 0x00000007,
+	TYPE_FULL_PATH		= 0x00000008
+} NAME_TYPE, *PNAME_TYPE, *LPNAME_TYPE;
 
 typedef struct _VOLUME_NAME_INFO
 {
@@ -61,34 +61,18 @@ typedef struct _VOLUME_NAME_INFO
 	LIST_ENTRY		List;			// struct EntryPointer
 } VOLUME_NAME_INFO, *PVOLUME_NAME_INFO, *LPVOLUME_NAME_INFO;
 
-
 class CFileName
 {
 public:
 	CFileName();
-	~CFileName();
 
-	static CKrnlStr* ms_pSystemRoot;
-	static CKrnlStr* ms_pPageFileSys;
-	static CKrnlStr* ms_pLogFileSys;
-	static CKrnlStr* ms_pWmDb;
+	~CFileName();
 
 	BOOLEAN
 		Init();
 
 	BOOLEAN
 		Unload();
-
-	BOOLEAN
-		Clear();
-
-	static
-		BOOLEAN
-		ToApp(
-		__in	CKrnlStr*		pName,
-		__inout CKrnlStr*		pAppName,
-		__in	PFLT_INSTANCE	pFltInstance
-		);
 
 	static
 		BOOLEAN
@@ -175,17 +159,55 @@ public:
 		__out	CKrnlStr	*	pName
 		);
 
+	/*++
+	*
+	* Routine Description:
+	*
+	*		插入一条VOLUME_NAME_INFO
+	*
+	* Arguments:
+	*
+	*		pAppName
+	*
+	*		pSymName
+	*
+	*		pDevName
+	*
+	*		bOnlyDevName
+	*
+	*		bRemoveable
+	*
+	*		pFltInstance
+	*
+	*		ulSectorSize
+	*
+	* Return Value:
+	*
+	*		TRUE	- 成功
+	*		FALSE	- 失败
+	*
+	* Author:
+	*
+	*		岳翔
+	*
+	* Complete Time:
+	*
+	*		无
+	*
+	* Modify Record:
+	*
+	*		无
+	*
+	--*/
 	BOOLEAN
 		InsertVolNameInfo(
-		__in		CKrnlStr*		pAppName,
-		__in		CKrnlStr*		pSymName,
+		__in_opt	CKrnlStr*		pAppName,
+		__in_opt	CKrnlStr*		pSymName,
 		__in		CKrnlStr*		pDevName,
 		__in		BOOLEAN			bOnlyDevName,
 		__in		BOOLEAN			bRemoveable,
-		__in_opt	PFLT_INSTANCE	pFltInstance	= NULL,
-		__in		ULONG			ulSectorSize	= 0,
-		__in_opt	PBOOLEAN		pbModify		= NULL,
-		__in_opt	CKrnlStr*		pOldDevName		= NULL
+		__in		PFLT_INSTANCE	pFltInstance,
+		__in		ULONG			ulSectorSize
 		);
 
 	BOOLEAN
@@ -199,27 +221,6 @@ public:
 		__in	CKrnlStr*	pDirPath,
 		__in	CKrnlStr*	pFileName,
 		__inout	CKrnlStr*	pFilePath
-		);
-
-	static
-		BOOLEAN
-		EqualPureFileName(
-		__in CKrnlStr* pFileName1,
-		__in CKrnlStr* pFileName2
-		);
-
-	static
-		BOOLEAN
-		GetPureFileName(
-		__in CKrnlStr* pFileName,
-		__in CKrnlStr* pPureName
-		);
-
-	static
-		BOOLEAN
-		GetExt(
-		__in CKrnlStr* pFileName,
-		__in CKrnlStr* pExt
 		);
 
 	LPVOLUME_NAME_INFO
@@ -290,38 +291,40 @@ public:
 		__inout PNAME_TYPE	pNameType
 		);
 
-	static
-		BOOLEAN
-		ParseDevName(
-		__in	PFLT_VOLUME	pFltVol,
-		__in	CKrnlStr*	pDevName,
-		__inout CKrnlStr*	pVolName,
-		__inout CKrnlStr*	pPartName
-		);
-
-	static
-		BOOLEAN
-		IsPageFileSys(
-		__in CKrnlStr* pFileName
-		);
-
-	static
-		BOOLEAN
-		IsWmDb(
-		__in CKrnlStr* pFileName
-		);
-
-	static
-		BOOLEAN
-		SetWmDb(
-		__in CKrnlStr* pFileName
-		);
-
+	/*++
+	*
+	* Routine Description:
+	*
+	*		是否是标准卷解挂
+	*
+	* Arguments:
+	*
+	*		pVolDevName
+	*
+	*		pFltInstance
+	*
+	* Return Value:
+	*
+	*		TRUE	- 是
+	*		FALSE	- 不是
+	*
+	* Author:
+	*
+	*		岳翔
+	*
+	* Complete Time:
+	*
+	*		无
+	*
+	* Modify Record:
+	*
+	*		无
+	*
+	--*/
 	BOOLEAN
 		IsDisMountStandard(
-		__in		CKrnlStr*		pVolDevName,
-		__in		PFLT_INSTANCE	pFltInstance,
-		__in_opt	CKrnlStr*		pVolAppName	= NULL
+		__in CKrnlStr*		pVolDevName,
+		__in PFLT_INSTANCE	pFltInstance
 		);
 
 	static
@@ -332,13 +335,6 @@ public:
 		__inout PUSHORT		pusCutOffset
 		);
 
-	BOOLEAN
-		ParseDevNameFromList(
-		__in		CKrnlStr*		pDevName,
-		__inout		CKrnlStr*		pVolName,
-		__inout		CKrnlStr*		pPartName,
-		__out_opt	PFLT_INSTANCE*	pPFltInstance = NULL
-		);
 
 	BOOLEAN
 		GetFltInstance(
@@ -351,44 +347,6 @@ public:
 		GetSectorSize(
 		__in	CKrnlStr*	pFileName,
 		__inout ULONG*		pUlSectorSize
-		);
-
-	/*
-	* 函数说明：
-	*		判断是否是\\Device\\HarddiskVolumeShadowCopy卷
-	*
-	* 参数：
-	*		pFileName	卷名
-	*
-	* 返回值：
-	*		TRUE	是
-	*		FALSE	不是
-	*
-	* 备注：
-	*		无
-	*/
-	BOOLEAN
-		IsShadowCopy(
-		__in CKrnlStr * pFileName
-		);
-
-	/*
-	* 函数说明：
-	*		判断是否是可移动存储介质
-	*
-	* 参数：
-	*		pFileName	文件名
-	*
-	* 返回值：
-	*		TRUE	是
-	*		FALSE	不是
-	*
-	* 备注：
-	*		无
-	*/
-	BOOLEAN
-		IsRemoveable(
-		__in CKrnlStr * pFileName
 		);
 
 private:
@@ -469,20 +427,4 @@ private:
 		__out	CKrnlStr * pDevName
 		);
 
-	BOOLEAN
-		IsSystemRootPath(
-		__in CKrnlStr* pFileName
-		);
-
-	BOOLEAN
-		SystemRootToDev(
-		__in	CKrnlStr* pFileName,
-		__inout CKrnlStr* pFileNameDev
-		);
-
-	BOOLEAN
-		ConvertByZwQuerySymbolicLinkObject(
-		__in	CKrnlStr* pFileName,
-		__inout CKrnlStr* pNewFileName
-		);
 };

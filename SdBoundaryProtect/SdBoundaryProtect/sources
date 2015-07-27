@@ -10,5 +10,9 @@ SOURCES=Public.cpp \
 		KrnlStr.cpp \
 		FileName.cpp \
 		Log.cpp \
+		ProcWhiteList.cpp \
+		DirHide.cpp \
+		DirControlList.cpp \
+		File.cpp \
 		Minifilter.cpp \
-        SdBoundaryProtect.rc
+		SdBoundaryProtect.rc

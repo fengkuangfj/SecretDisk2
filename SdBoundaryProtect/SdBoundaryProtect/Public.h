@@ -34,9 +34,8 @@
 
 #pragma once
 
-#define MOD_PUBLIC				L"Public"
-#define MEMORY_TAG_PUBLIC		'CLBP'			// PBLC
-
+#define MOD_PUBLIC			L"Public"
+#define MEMORY_TAG_PUBLIC	'CLBP'		// PBLC
 
 typedef enum _LOG_PRINTF_LEVEL
 {
@@ -52,9 +51,6 @@ typedef enum _LOG_RECORED_LEVEL
 } LOG_RECORED_LEVEL, *PLOG_RECORED_LEVEL, *LPLOG_RECORED_LEVEL;
 
 #define KdPrintKrnl(PrintfLevel, RecoredLevel, FMT, ...) PrintKrnl(PrintfLevel, RecoredLevel, __FUNCTION__, FMT, __VA_ARGS__)
-
-#define _ENABLE_DEVELOPER_TEST_
-// #define _ENABLE_PROC_PROTECT_
 
 extern "C"
 	UCHAR*

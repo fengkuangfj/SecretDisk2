@@ -34,13 +34,8 @@
 
 #pragma once
 
-#define MOD_KRNLSTR				L"×Ö·û´®"
-#define MEMORY_TAG_KRNLSTR		'TSNK'			// KNST
-
-#pragma once
-
-#define KRNLSTR_TAG 'TSNK'
-
+#define MOD_KRNLSTR			L"×Ö·û´®"
+#define MEMORY_TAG_KRNLSTR	'TSNK'		// KNST
 
 /*
 * UNICODE_STRING·â×°Àà

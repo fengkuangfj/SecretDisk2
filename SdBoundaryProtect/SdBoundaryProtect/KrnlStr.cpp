@@ -35,7 +35,6 @@
 #include "stdafx.h"
 #include "KrnlStr.h"
 
-
 CKrnlStr::CKrnlStr()
 {
 	RtlZeroMemory(&m_Str, sizeof(m_Str));
@@ -60,7 +59,7 @@ BOOLEAN
 	{
 		if (!usLenCh)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -70,7 +69,7 @@ BOOLEAN
 			Free();
 
 			m_Str.MaximumLength = usLenB;
-			m_Str.Buffer = (PWCHAR)new(KRNLSTR_TAG) CHAR[m_Str.MaximumLength];
+			m_Str.Buffer = (PWCHAR)new(MEMORY_TAG_KRNLSTR) CHAR[m_Str.MaximumLength];
 		}
 		else
 			Clean();
@@ -110,7 +109,7 @@ BOOLEAN
 	{
 		if (!pCKrnlStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -175,7 +174,7 @@ BOOLEAN
 	{
 		if (!pWchStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -228,7 +227,7 @@ BOOLEAN
 	{
 		if (!pChStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -277,7 +276,7 @@ BOOLEAN
 	{
 		if (!pUnicodeStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -342,7 +341,7 @@ BOOLEAN
 	{
 		if (!pCKrnlStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -376,7 +375,7 @@ BOOLEAN
 
 		if (!pWchStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -416,7 +415,7 @@ BOOLEAN
 	{
 		if (!pChStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -477,7 +476,7 @@ BOOLEAN
 	{
 		if (!pCKrnlStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -506,7 +505,7 @@ BOOLEAN
 	{
 		if (!pChStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -553,7 +552,7 @@ BOOLEAN
 
 		if (!pWchStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -606,7 +605,7 @@ BOOLEAN
 	{
 		if (!pUnicodeStr)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -805,7 +804,7 @@ BOOLEAN
 	{
 		if (!pWchPosition1 || !pWchPosition2 || !usLenChCmp)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error. pWchPosition1(%p) pWchPosition2(%p) usLenB(%d)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pWchPosition1(%p) pWchPosition2(%p) usLenB(%d)",
 				pWchPosition1, pWchPosition2, usLenChCmp);
 
 			__leave;
@@ -880,7 +879,7 @@ PWCHAR
 	{
 		if (!pWchBegin || !pWchEnd)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error. pBegin(%p) pEnd(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pBegin(%p) pEnd(%p)",
 				pWchBegin, pWchEnd);
 
 			__leave;

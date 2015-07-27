@@ -35,9 +35,7 @@
 #include "stdafx.h"
 #include "Minifilter.h"
 
-
 CMinifilter * CMinifilter::ms_pMfIns = NULL;
-
 
 BOOLEAN
 	CMinifilter::InitCallbacks()
@@ -67,6 +65,12 @@ BOOLEAN
 		m_Callbacks[ulIndex].Flags			= 0;
 		m_Callbacks[ulIndex].PreOperation	= PreDirectoryControl;
 		m_Callbacks[ulIndex].PostOperation	= PostDirectoryControl;
+
+		ulIndex++;
+		m_Callbacks[ulIndex].MajorFunction	= IRP_MJ_DEVICE_CONTROL;
+		m_Callbacks[ulIndex].Flags			= 0;
+		m_Callbacks[ulIndex].PreOperation	= PreDeviceControl;
+		m_Callbacks[ulIndex].PostOperation	= NULL;
 
 		ulIndex++;
 		if (CALLBACKS_NUM - 1 != ulIndex)
@@ -154,12 +158,14 @@ BOOLEAN
 	__in PDRIVER_OBJECT pDriverObject
 	)
 {
-	BOOLEAN		bRet		= FALSE;
+	BOOLEAN			bRet			= FALSE;
 
-	NTSTATUS	ntStatus	= STATUS_UNSUCCESSFUL;
+	NTSTATUS		ntStatus		= STATUS_UNSUCCESSFUL;
 
-	CLog		Log;
-	CFileName	FileName;
+	CLog			Log;
+	CFileName		FileName;
+	CProcWhiteList	ProcWhiteList;
+	CDirControlList	DirControlList;
 
 
 	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
@@ -179,6 +185,14 @@ BOOLEAN
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName.Init failed");
 			__leave;
 		}
+
+		if (!ProcWhiteList.Init())
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ProcWhiteList.Init failed");
+			__leave;
+		}
+
+		DirControlList.Init();
 
 		// Register with FltMgr to tell it our callback routines
 		ntStatus = FltRegisterFilter(
@@ -222,6 +236,8 @@ BOOLEAN
 				m_pFltFilter = NULL;
 			}
 
+			DirControlList.Unload();
+			ProcWhiteList.Unload();
 			FileName.Unload();
 		}
 	}
@@ -282,10 +298,12 @@ NTSTATUS
 	__in FLT_FILTER_UNLOAD_FLAGS Flags
 	)
 {
-	NTSTATUS	ntStatus = STATUS_UNSUCCESSFUL;
+	NTSTATUS		ntStatus		= STATUS_UNSUCCESSFUL;
 
-	CLog		Log;
-	CFileName	FileName;
+	CLog			Log;
+	CFileName		FileName;
+	CProcWhiteList	ProcWhiteList;
+	CDirControlList	DirControlList;
 
 
 	UNREFERENCED_PARAMETER(Flags);
@@ -318,6 +336,8 @@ NTSTATUS
 			CMinifilter::ms_pMfIns->m_pFltFilter = NULL;
 		}
 
+		DirControlList.Unload();
+		ProcWhiteList.Unload();
 		FileName.Unload();
 	}
 	__finally
@@ -352,14 +372,12 @@ NTSTATUS
 	USHORT					size												= 0;
 	USHORT					usCutOffset											= 0;
 	UNICODE_STRING			ustrDosName											= {0};
-	BOOLEAN					bModify												= FALSE;
 	ULONG					ulSectorSize										= 0;
 	BOOLEAN					bOnlyDevName										= FALSE;
 
 	CKrnlStr				VolDevName;
 	CKrnlStr				VolAppName;
 	CKrnlStr				VolSymName;
-	CKrnlStr				OldVolDevName;
 
 	CFileName				FileName;
 
@@ -407,7 +425,7 @@ NTSTATUS
 		// specified.
 		if (pVolProp->SectorSize && MIN_SECTOR_SIZE > pVolProp->SectorSize)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"SectorSize error. SectorSize(%d)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"SectorSize error. SectorSize(%d)",
 				pVolProp->SectorSize);
 
 			__leave;
@@ -423,14 +441,14 @@ NTSTATUS
 			// an allocated name buffer.  If not, it will be NULL
 			ntStatus = RtlVolumeDeviceToDosName(pDevObj, &ustrDosName);
 			if (!NT_SUCCESS(ntStatus))
-				KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"RtlVolumeDeviceToDosName failed. (%x)",
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"RtlVolumeDeviceToDosName failed. (%x)",
 				ntStatus);
 			else
 				KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"DosName(%wZ)",
 				&ustrDosName);
 		}
 		else
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"FltGetDiskDeviceObject failed. (%x)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltGetDiskDeviceObject failed. (%x)",
 			ntStatus);
 
 		//  If we could not get a DOS name, get the NT name.
@@ -454,7 +472,7 @@ NTSTATUS
 			else 
 			{
 				// No name, don't save the context
-				KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"no name");
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"no name");
 				__leave;
 			}
 
@@ -504,7 +522,7 @@ NTSTATUS
 				// pVolCtx->Name中为\\?\volume{}
 				if (!FileName.GetVolAppNameByQueryObj(&VolDevName, &VolAppName, &usCutOffset))
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"GetVolAppNameByQueryObj failed. DevName(%wZ)",
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"GetVolAppNameByQueryObj failed. DevName(%wZ)",
 						VolDevName.Get());
 
 					__leave;
@@ -552,21 +570,12 @@ NTSTATUS
 		}
 
 		// 保存卷名信息
-		if (!FileName.InsertVolNameInfo(&VolAppName, &VolSymName, &VolDevName, bOnlyDevName, bRemoveable, FltObjects->Instance, ulSectorSize, &bModify, &OldVolDevName))
+		if (!FileName.InsertVolNameInfo(&VolAppName, &VolSymName, &VolDevName, bOnlyDevName, bRemoveable, FltObjects->Instance, ulSectorSize))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName.InsertVolName failed. AppName(%wZ) SymName(%wZ) DevName(%wZ)",
 				VolAppName.Get(), VolSymName.Get(), VolDevName.Get());
 
 			__leave;
-		}
-
-		if (CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_ALL_MODULE_INIT | MINIFILTER_ENV_TYPE_ALLOW_WORK))
-		{
-			if (bModify)
-			{
-				// 已经格式化完毕
-
-			}
 		}
 	} 
 	__finally 
@@ -679,14 +688,49 @@ FLT_PREOP_CALLBACK_STATUS
 	__deref_out_opt PVOID					*	CompletionContext
 	)
 {
-	NTSTATUS status;
+	FLT_PREOP_CALLBACK_STATUS	CallbackStatus	= FLT_PREOP_SUCCESS_NO_CALLBACK;
+
+	CKrnlStr					FileName;
+
+	CProcWhiteList				ProcWhiteList;
+	CDirControlList				DirControlList;
 
 
-	UNREFERENCED_PARAMETER( FltObjects );
-	UNREFERENCED_PARAMETER( CompletionContext );
+	UNREFERENCED_PARAMETER(CompletionContext);
 
 
-	return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+	__try
+	{
+		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_ALL_MODULE_INIT | MINIFILTER_ENV_TYPE_ALLOW_WORK))
+			__leave;
+
+		if (ProcWhiteList.IsIn((ULONG)PsGetCurrentProcessId()))
+			__leave;
+
+		if (!CFileName::GetFileFullPath(Data, FltObjects->Volume, &FileName))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::GetFullFilePath failed. File(%wZ)",
+				&Data->Iopb->TargetFileObject->FileName);
+
+			__leave;
+		}
+
+		if (DirControlList.IsIn(&FileName, DIR_CONTROL_TYPE_ACCESS))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"File(%wZ)",
+				FileName.Get());
+
+			Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+			Data->IoStatus.Information = 0;
+			CallbackStatus = FLT_PREOP_COMPLETE;
+		}
+	}
+	__finally
+	{
+		;
+	}
+
+	return CallbackStatus;
 }
 
 FLT_PREOP_CALLBACK_STATUS
@@ -696,14 +740,124 @@ FLT_PREOP_CALLBACK_STATUS
 	__deref_out_opt PVOID					*	CompletionContext
 	)
 {
-	NTSTATUS status;
+	FLT_PREOP_CALLBACK_STATUS	CallbackStatus	= FLT_PREOP_SUCCESS_NO_CALLBACK;
+
+	PFILE_RENAME_INFORMATION	pRenameInfo		= NULL;
+	PWCHAR						TmpName			= NULL;
+
+	CKrnlStr					FileName;
+	CKrnlStr					DesFileName;
+	CKrnlStr					DesFileNameSym;
+
+	CProcWhiteList				ProcWhiteList;
+	CDirControlList				DirControlList;
 
 
-	UNREFERENCED_PARAMETER( FltObjects );
-	UNREFERENCED_PARAMETER( CompletionContext );
+	UNREFERENCED_PARAMETER(CompletionContext);
 
 
-	return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+	__try
+	{
+		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_ALL_MODULE_INIT | MINIFILTER_ENV_TYPE_ALLOW_WORK))
+			__leave;
+
+		if (ProcWhiteList.IsIn((ULONG)PsGetCurrentProcessId()))
+			__leave;
+
+		if (!CFileName::GetFileFullPath(Data, FltObjects->Volume, &FileName))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::GetFullFilePath failed. File(%wZ)",
+				&Data->Iopb->TargetFileObject->FileName);
+
+			__leave;
+		}
+
+		if (DirControlList.IsIn(&FileName, DIR_CONTROL_TYPE_ACCESS))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"File(%wZ)",
+				FileName.Get());
+
+			Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+			Data->IoStatus.Information = 0;
+			CallbackStatus = FLT_PREOP_COMPLETE;
+			__leave;
+		}
+
+		if (FileRenameInformation != Data->Iopb->Parameters.SetFileInformation.FileInformationClass)
+			__leave;
+
+		pRenameInfo = (PFILE_RENAME_INFORMATION)(Data->Iopb->Parameters.SetFileInformation.InfoBuffer);
+		if (!pRenameInfo)
+			__leave;
+
+		TmpName = (PWCHAR)new(MEMORY_TAG_PRE_SET_INFORMATION) CHAR[pRenameInfo->FileNameLength + sizeof(WCHAR)];
+		RtlCopyMemory(TmpName, pRenameInfo->FileName, pRenameInfo->FileNameLength);
+
+		if (pRenameInfo->RootDirectory)
+		{
+			if (!CFileName::GetPathByHandle(Data, FltObjects, pRenameInfo->RootDirectory, &DesFileName))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::GetPathByHandle failed. (%wZ) -> (%lS)",
+					FileName.Get(), TmpName);
+
+				__leave;
+			}
+
+			if (L'\\' != *TmpName)
+			{
+				if (!DesFileName.Append(L"\\", wcslen(L"\\")))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DesFileName.Append failed. (%wZ) -> (%wZ)(%lS)",
+						FileName.Get(), DesFileName.Get(), TmpName);
+
+					__leave;
+				}
+			}
+
+			if (!DesFileName.Append(TmpName, wcslen(TmpName)))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DesFileName.Append failed. (%wZ) -> (%wZ)(%wZ)",
+					FileName.Get(), DesFileName.Get(), TmpName);
+
+				__leave;
+			}
+		}
+		else
+		{
+			if (!DesFileNameSym.Set(TmpName, wcslen(TmpName)))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DesFileNameSym.Set failed. (%wZ) -> (%lS)",
+					FileName.Get(), TmpName);
+
+				__leave;
+			}
+
+			if (!CFileName::ToDev(&DesFileNameSym, &DesFileName, Data->Iopb->TargetInstance))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::ToDev failed. (%wZ) -> (%wZ)",
+					FileName.Get(), DesFileNameSym.Get());
+
+				__leave;
+			}
+		}
+
+		if (DirControlList.IsIn(&DesFileName, DIR_CONTROL_TYPE_ACCESS))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"(%wZ) -> (%wZ)",
+				FileName.Get(), DesFileName.Get());
+
+			Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+			Data->IoStatus.Information = 0;
+			CallbackStatus = FLT_PREOP_COMPLETE;
+		}
+	}
+	__finally
+	{
+		delete[] TmpName;
+		TmpName = NULL;
+	}
+
+	return CallbackStatus;
 }
 
 FLT_PREOP_CALLBACK_STATUS
@@ -713,14 +867,143 @@ FLT_PREOP_CALLBACK_STATUS
 	__deref_out_opt PVOID					*	CompletionContext
 	)
 {
-	NTSTATUS status;
+	FLT_PREOP_CALLBACK_STATUS				CallbackStatus	= FLT_PREOP_SUCCESS_NO_CALLBACK;
+
+	FILE_OBJECT_TYPE								ObjType			= OBJECT_TYPE_NULL;
+	LPPRE_POST_DIRECTORY_CONTROL_CONTEXT	lpPrePostDirCtx	= NULL;
+
+	CKrnlStr								FileName;
+	CKrnlStr								PureFileName;
+	CKrnlStr								QueryFileName;
+
+	CProcWhiteList							ProcWhiteList;
+	CDirControlList							DirControlList;
 
 
-	UNREFERENCED_PARAMETER( FltObjects );
-	UNREFERENCED_PARAMETER( CompletionContext );
+	UNREFERENCED_PARAMETER(CompletionContext);
 
 
-	return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+	__try
+	{
+		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_ALL_MODULE_INIT | MINIFILTER_ENV_TYPE_ALLOW_WORK))
+			__leave;
+
+		if (ProcWhiteList.IsIn((ULONG)PsGetCurrentProcessId()))
+			__leave;
+
+		if (!CFileName::GetFileFullPath(Data, FltObjects->Volume, &FileName))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::GetFullFilePath failed. File(%wZ)",
+				&Data->Iopb->TargetFileObject->FileName);
+
+			__leave;
+		}
+
+		if (IRP_MN_NOTIFY_CHANGE_DIRECTORY == Data->Iopb->MinorFunction)
+		{
+			if (DirControlList.IsIn(&FileName, DIR_CONTROL_TYPE_ACCESS))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"[IRP_MN_NOTIFY_CHANGE_DIRECTORY] File(%wZ)",
+					FileName.Get());
+
+				Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+				Data->IoStatus.Information = 0;
+				CallbackStatus = FLT_PREOP_COMPLETE;
+			}
+
+			__leave;
+		}
+
+		ObjType = CFile::GetObjType(Data, &FileName, TRUE);
+		switch (ObjType)
+		{
+		case OBJECT_TYPE_VOLUME:
+		case OBJECT_TYPE_DIR:
+			{
+				if (!Data->Iopb->Parameters.DirectoryControl.QueryDirectory.FileName)
+					break;
+
+				if (!PureFileName.Set(Data->Iopb->Parameters.DirectoryControl.QueryDirectory.FileName))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"PureFileName.Set faile. File(%wZ)",
+						Data->Iopb->Parameters.DirectoryControl.QueryDirectory.FileName);
+
+					__leave;
+				}
+
+				if (CFileName::IsExpression(&PureFileName))
+					break;
+
+				if (!CFileName::SpliceFilePath(&FileName, &PureFileName, &QueryFileName))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::SpliceFilePath failed. Dir(%wZ) Name(%wZ)",
+						FileName.Get(), PureFileName.Get());
+
+					__leave;
+				}
+
+				break;
+			}
+		case OBJECT_TYPE_FILE:
+			{
+				if (!QueryFileName.Set(&FileName))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"QueryFileName.Set failed. File(%wZ)",
+						FileName.Get());
+
+					__leave;
+				}
+
+				break;
+			}
+		default:
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ObjType error. ObjType(%d) File(%wZ)",
+					ObjType, FileName.Get());
+
+				__leave;
+			}
+		}
+
+		if (QueryFileName.GetLenCh())
+		{
+			if (DirControlList.IsIn(&QueryFileName, DIR_CONTROL_TYPE_ACCESS))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"[IRP_MN_QUERY_DIRECTORY] File(%wZ)",
+					FileName.Get());
+
+				Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+				Data->IoStatus.Information = 0;
+				CallbackStatus = FLT_PREOP_COMPLETE;
+			}
+
+			__leave;
+		}
+
+		lpPrePostDirCtx = new(MEMORY_TAG_PRE_POST_DIRECTORY_CONTRL_CONTEXT) PRE_POST_DIRECTORY_CONTROL_CONTEXT;
+
+		if (!lpPrePostDirCtx->FileName.Set(&FileName))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"lpPrePostDirCtx->FileName.Set failed. File(%wZ)",
+				FileName.Get());
+
+			__leave;
+		}
+
+		*CompletionContext = lpPrePostDirCtx;
+
+		CallbackStatus = FLT_PREOP_SUCCESS_WITH_CALLBACK;
+	}
+	__finally
+	{
+		if (FLT_PREOP_SUCCESS_WITH_CALLBACK != CallbackStatus)
+		{
+			delete lpPrePostDirCtx;
+			lpPrePostDirCtx = NULL;
+		}
+	}
+
+	return CallbackStatus;
 }
 
 FLT_POSTOP_CALLBACK_STATUS
@@ -731,11 +1014,41 @@ FLT_POSTOP_CALLBACK_STATUS
 	__in		FLT_POST_OPERATION_FLAGS	Flags
 	)
 {
-	UNREFERENCED_PARAMETER( Data );
-	UNREFERENCED_PARAMETER( FltObjects );
-	UNREFERENCED_PARAMETER( CompletionContext );
-	UNREFERENCED_PARAMETER( Flags );
+	LPPRE_POST_DIRECTORY_CONTROL_CONTEXT	lpPrePostDirCtx = (LPPRE_POST_DIRECTORY_CONTROL_CONTEXT)CompletionContext;
 
+	CDirControlList							DirControlList;
+
+
+	UNREFERENCED_PARAMETER(FltObjects);
+	UNREFERENCED_PARAMETER(Flags);
+
+
+	__try
+	{
+		if (!NT_SUCCESS(Data->IoStatus.Status))
+			__leave;
+
+		if (!lpPrePostDirCtx)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"lpPrePostDirCtx error. File(%wZ)",
+				&Data->Iopb->TargetFileObject->FileName);
+
+			__leave;
+		}
+
+		if (!DirControlList.Filter(&lpPrePostDirCtx->FileName, Data))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DirControlList.Filter failed. File(%wZ)",
+				lpPrePostDirCtx->FileName.Get());
+
+			__leave;
+		}
+	}
+	__finally
+	{
+		delete lpPrePostDirCtx;
+		lpPrePostDirCtx = NULL;
+	}
 
 	return FLT_POSTOP_FINISHED_PROCESSING;
 }
@@ -790,4 +1103,92 @@ BOOLEAN
 	}
 
 	return bRet;
+}
+
+FLT_PREOP_CALLBACK_STATUS
+	CMinifilter::PreDeviceControl(
+	__inout			PFLT_CALLBACK_DATA			Data,
+	__in			PCFLT_RELATED_OBJECTS		FltObjects,
+	__deref_out_opt PVOID					*	CompletionContext
+	)
+{
+	FLT_PREOP_CALLBACK_STATUS	CallbackStatus	= FLT_PREOP_SUCCESS_NO_CALLBACK;
+
+	CProcWhiteList				ProcWhiteList;
+
+
+	UNREFERENCED_PARAMETER(FltObjects);
+	UNREFERENCED_PARAMETER(CompletionContext);
+
+
+	__try
+	{
+		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_ALL_MODULE_INIT | MINIFILTER_ENV_TYPE_ALLOW_WORK))
+			__leave;
+
+		if (ProcWhiteList.IsIn((ULONG)PsGetCurrentProcessId()))
+			__leave;
+
+		Data->Iopb->Parameters.DeviceIoControl;
+
+		/*
+
+		KdPrint(("Enter HelloWDMIOControl\n"));
+
+		PDEVICE_EXTENSION pdx = (PDEVICE_EXTENSION)fdo->DeviceExtension;
+		PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(Irp);
+
+		//得到输入缓冲区大小
+		ULONG cbin = stack->Parameters.DeviceIoControl.InputBufferLength;
+
+		//得到输出缓冲区大小
+		ULONG cbout = stack->Parameters.DeviceIoControl.OutputBufferLength;
+
+		//得到IOCTRL码
+		ULONG code = stack->Parameters.DeviceIoControl.IoControlCode;
+
+		NTSTATUS status;
+		ULONG info = 0;
+		switch (code)
+		{
+		case IOCTL_ENCODE:
+			{
+				//获取输入缓冲区，IRP_MJ_DEVICE_CONTROL的输入都是通过buffered io的方式
+				char* inBuf = (char*)Irp->AssociatedIrp.SystemBuffer;
+				for (ULONG i = 0; i < cbin; i++)//将输入缓冲区里面的每个字节和m亦或
+				{
+					inBuf[i] = inBuf[i] ^ 'm';
+				}
+
+				//获取输出缓冲区，这里使用了直接方式，见CTL_CODE的定义，使用了METHOD_IN_DIRECT。所以需要通过直接方式获取out buffer
+				KdPrint(("user address: %x, this address should be same to user mode addess.\n", MmGetMdlVirtualAddress(Irp->MdlAddress)));
+				//获取内核模式下的地址，这个地址一定> 0x7FFFFFFF,这个地址和上面的用户模式地址对应同一块物理内存
+				char* outBuf = (char*)MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);
+
+				ASSERT(cbout >= cbin);
+				RtlCopyMemory(outBuf, inBuf, cbin);
+				info = cbin;
+				status = STATUS_SUCCESS;
+			}
+			break;
+		default:
+			status = STATUS_INVALID_VARIANT;
+			break;
+		}
+
+		Irp->IoStatus.Status = status;
+		Irp->IoStatus.Information = info;
+		IoCompleteRequest(Irp, IO_NO_INCREMENT);
+
+		KdPrint(("Leave HelloWDMIOControl\n"));
+		return status;
+
+		*/
+	}
+	__finally
+	{
+		;
+	}
+
+	return CallbackStatus;
 }

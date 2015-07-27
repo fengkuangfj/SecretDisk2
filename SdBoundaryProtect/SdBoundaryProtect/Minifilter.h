@@ -34,16 +34,16 @@
 
 #pragma once
 
-#define MOD_MINIFITER						L"Minifilter"
-#define MEMORY_TAG_MINIFILTER				'TFNM'			// MNFT
-#define	MEMORY_TAG_PRE_CREATE				'TCRP'			// PRCT
-#define	MEMORY_TAG_PRE_SET_INFORMATION		'ISRP'			// PRSI
-#define	MEMORY_TAG_PRE_DIRECTORY_CONTROL	'CDRP'			// PRDC
-#define	MEMORY_TAG_POST_DIRECTORY_CONTROL	'CDOP'			// PODC
-#define MEMORY_TAG_INSTANCE_TAG				'TTSI' 			// ISTT
-#define CALLBACKS_NUM						4
-#define MIN_SECTOR_SIZE						0x200
-
+#define MOD_MINIFITER									L"Minifilter"
+#define MEMORY_TAG_MINIFILTER							'TFNM'			// MNFT
+#define	MEMORY_TAG_PRE_CREATE							'TCRP'			// PRCT
+#define	MEMORY_TAG_PRE_SET_INFORMATION					'ISRP'			// PRSI
+#define	MEMORY_TAG_PRE_DIRECTORY_CONTROL				'CDRP'			// PRDC
+#define	MEMORY_TAG_POST_DIRECTORY_CONTROL				'CDOP'			// PODC
+#define MEMORY_TAG_INSTANCE_TAG							'TTSI' 			// ISTT
+#define	MEMORY_TAG_PRE_POST_DIRECTORY_CONTRL_CONTEXT	'CDPP'			// PPDC
+#define CALLBACKS_NUM									5
+#define MIN_SECTOR_SIZE									0x200
 
 typedef enum _MINIFILTER_ENV_TYPE
 {
@@ -54,6 +54,10 @@ typedef enum _MINIFILTER_ENV_TYPE
 	MINIFILTER_ENV_TYPE_FLT_FILTER		= 0x00000008
 } MINIFILTER_ENV_TYPE, *PMINIFILTER_ENV_TYPE, *LPMINIFILTER_ENV_TYPE;
 
+typedef struct _PRE_POST_DIRECTORY_CONTROL_CONTEXT
+{
+	CKrnlStr FileName;
+} PRE_POST_DIRECTORY_CONTROL_CONTEXT, *PPRE_POST_DIRECTORY_CONTROL_CONTEXT, *LPPRE_POST_DIRECTORY_CONTROL_CONTEXT;
 
 extern "C" DRIVER_INITIALIZE DriverEntry;
 
@@ -642,6 +646,54 @@ private:
 	static
 		FLT_PREOP_CALLBACK_STATUS
 		PreSetInformation(
+		__inout			PFLT_CALLBACK_DATA			Data,
+		__in			PCFLT_RELATED_OBJECTS		FltObjects,
+		__deref_out_opt PVOID					*	CompletionContext
+		);
+
+		/*++
+	*
+	* Routine Description:
+	*
+	*		This routine is the main pre-operation dispatch routine for this
+	*		miniFilter. Since this is just a simple passThrough miniFilter it
+	*		does not do anything with the callbackData but rather return
+	*		FLT_PREOP_SUCCESS_WITH_CALLBACK thereby passing it down to the next
+	*		miniFilter in the chain.
+	*
+	*		This is non-pageable because it could be called on the paging path
+	*
+	* Arguments:
+	*
+	*		Data				-	Pointer to the filter callbackData that is passed to us.
+	*
+	*		FltObjects			-	Pointer to the FLT_RELATED_OBJECTS data structure containing
+	*								opaque handles to this filter, instance, its associated volume and
+	*								file object.
+	*
+	*		CompletionContext	-	The context for the completion routine for this
+	*								operation.
+	*
+	* Return Value:
+	*
+	*		The return value is the status of the operation.
+	*
+	* Author:
+	*
+	*		‘¿œË
+	*
+	* Complete Time:
+	*
+	*		Œﬁ
+	*
+	* Modify Record:
+	*
+	*		Œﬁ
+	*
+	--*/
+	static
+		FLT_PREOP_CALLBACK_STATUS
+		PreDeviceControl(
 		__inout			PFLT_CALLBACK_DATA			Data,
 		__in			PCFLT_RELATED_OBJECTS		FltObjects,
 		__deref_out_opt PVOID					*	CompletionContext

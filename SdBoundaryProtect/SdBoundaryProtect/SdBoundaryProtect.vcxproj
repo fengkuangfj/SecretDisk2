@@ -75,11 +75,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Comm\CommPublic.h" />
+    <ClInclude Include="..\..\Comm\Public.h" />
+    <ClInclude Include="DirControlList.h" />
+    <ClInclude Include="DirHide.h" />
+    <ClInclude Include="File.h" />
     <ClInclude Include="FileName.h" />
     <ClInclude Include="KrnlStr.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="Minifilter.h" />
-    <ClInclude Include="Public.h" />
+    <ClInclude Include="ProcWhiteList.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
@@ -88,10 +93,14 @@
     <None Include="sources" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DirControlList.cpp" />
+    <ClCompile Include="DirHide.cpp" />
+    <ClCompile Include="File.cpp" />
     <ClCompile Include="FileName.cpp" />
     <ClCompile Include="KrnlStr.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Minifilter.cpp" />
+    <ClCompile Include="ProcWhiteList.cpp" />
     <ClCompile Include="Public.cpp" />
   </ItemGroup>
   <ItemGroup>

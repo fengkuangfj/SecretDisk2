@@ -35,7 +35,6 @@
 #include "stdafx.h"
 #include "Log.h"
 
-
 LIST_ENTRY		CLog::ms_ListHead		= {0};
 ERESOURCE		CLog::ms_Lock			= {0};
 KSPIN_LOCK		CLog::ms_SpLock			= 0;
@@ -49,7 +48,6 @@ PFLT_INSTANCE	CLog::ms_pFltInstance	= NULL;
 ULONG			CLog::ms_ulSectorSize	= 0;
 PETHREAD		CLog::ms_pEThread		= NULL;
 BOOLEAN			CLog::ms_bCanInsertLog	= FALSE;
-
 
 CLog::CLog()
 {
@@ -109,7 +107,7 @@ VOID
 						{
 							if (!Log.Pop(&LogInfo))
 							{
-								// KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"[STATUS_SUCCESS] Log.Pop failed");
+								KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"[STATUS_SUCCESS] Log.Pop failed");
 								break;
 							}
 
@@ -141,7 +139,7 @@ VOID
 						{
 							if (!Log.Pop(&LogInfo))
 							{
-								// KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"[STATUS_TIMEOUT] Log.Pop failed");
+								KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"[STATUS_TIMEOUT] Log.Pop failed");
 								break;
 							}
 
@@ -497,7 +495,7 @@ BOOLEAN
 		pNode = RemoveHeadList(&ms_ListHead);
 		if (pNode == &ms_ListHead)
 		{
-			// KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"list empty");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"list empty");
 			__leave;
 		}
 
@@ -683,25 +681,25 @@ BOOLEAN
 
 		if (!ms_ulSectorSize)
 		{
-			// KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_ulSectorSize");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_ulSectorSize");
 			__leave;
 		}
 
 		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_FLT_FILTER))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == CDriver::ms_DrvIns->m_MfIns->m_Flt");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == CDriver::ms_DrvIns->m_MfIns->m_Flt");
 			__leave;
 		}
 
 		if (!ms_pFltInstance)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_pFltInstance");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_pFltInstance");
 			__leave;
 		}
 
 		if (!ms_pLogFile || !ms_pLogFile->GetLenCh())
 		{
-			// KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile not ready");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile not ready");
 			__leave;
 		}
 
@@ -734,7 +732,7 @@ BOOLEAN
 		if (!NT_SUCCESS(ntStatus))
 		{
 			if (STATUS_DELETE_PENDING == ntStatus)
-				KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"FltCreateFile failed. (%x) File(%wZ)",
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FltCreateFile failed. (%x) File(%wZ)",
 				ntStatus, ms_pLogFile->Get());
 			else
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FltCreateFile failed. (%x) File(%wZ)",
@@ -798,25 +796,25 @@ BOOLEAN
 
 		if (!InitLogFileName())
 		{
-			// KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"InitLogFileName failed");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"InitLogFileName failed");
 			__leave;
 		}
 
 		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_FLT_FILTER))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == CDriver::ms_DrvIns->m_MfIns->m_Flt");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == CDriver::ms_DrvIns->m_MfIns->m_Flt");
 			__leave;
 		}
 
 		if (!ms_pFltInstance)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_pFltInstance");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_pFltInstance");
 			__leave;
 		}
 
 		if (!ms_pLogFile || !ms_pLogFile->GetLenCh())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile not ready");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile not ready");
 			__leave;
 		}
 
@@ -922,14 +920,14 @@ BOOLEAN
 
 		if (!ms_pLogFile)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_pLogFile");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_pLogFile");
 
 			__leave;
 		}
 
 		if (!ms_pLogDir->GetLenCh())
 		{
-			// KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogDir->GetString failed");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogDir->GetString failed");
 			__leave;
 		}
 
@@ -1016,7 +1014,7 @@ BOOLEAN
 
 		if (!ms_bCanInsertLog)
 		{
-			// KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"not ready for insert");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"not ready for insert");
 			__leave;
 		}
 
@@ -1095,7 +1093,9 @@ BOOLEAN
 	__in CKrnlStr * pLogDir
 	)
 {
-	BOOLEAN bRet = FALSE;
+	BOOLEAN		bRet	= FALSE;
+
+	CFileName	FileName;
 
 
 	__try
@@ -1105,6 +1105,14 @@ BOOLEAN
 		if (!pLogDir)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"input argument error");
+			__leave;
+		}
+
+		if (!FileName.GetSectorSize(pLogDir, &ms_ulSectorSize))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FileName.GetSectorSize failed. Dir(%wZ)",
+				pLogDir->Get());
+
 			__leave;
 		}
 
