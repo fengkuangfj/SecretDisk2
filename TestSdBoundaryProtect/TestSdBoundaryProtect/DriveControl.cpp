@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "DriveControl.h"
 
-
 BOOL
 	CDriveControl::Install(
 	__in LPWSTR lpServiceName,

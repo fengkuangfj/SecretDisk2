@@ -10,11 +10,10 @@
 #include <stdio.h>
 #include <tchar.h>
 
-
-
 // TODO: 在此处引用程序需要的其他头文件
 #include <conio.h>
 #include <Windows.h>
 
 #include "DriveControl.h"
+#include "../../Comm/CommPublic.h"
 #include "CommWithDevice.h"

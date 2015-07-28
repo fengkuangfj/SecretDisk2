@@ -1632,7 +1632,7 @@ BOOLEAN
 	{
 		if (!pName || !pVolName || !pPartName || !pbDisk || !NameType)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -1807,7 +1807,7 @@ BOOLEAN
 	{
 		if (!pName || !pDevName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error. pName(%p) pDevName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pName(%p) pDevName(%p)",
 				pName, pDevName);
 
 			__leave;
@@ -1897,7 +1897,7 @@ LPVOLUME_NAME_INFO
 
 		if (!pName || !pName->Get())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -1959,7 +1959,7 @@ LPVOLUME_NAME_INFO
 
 		if (!pName || !pName->Get())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -2026,15 +2026,15 @@ LPVOLUME_NAME_INFO
 	{
 		FileName.GetLock();
 
-		if (!pName || !pName->Get())
+		if (!pName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
 		if (IsListEmpty(&FileName.ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Can not get");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty");
 			__leave;
 		}
 

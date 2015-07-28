@@ -2,7 +2,6 @@
 
 #define MOD_DRIVE_CONTROL L"Çý¶¯¿ØÖÆ"
 
-
 class CDriveControl
 {
 public:

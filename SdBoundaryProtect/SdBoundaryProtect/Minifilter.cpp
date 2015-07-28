@@ -162,6 +162,8 @@ BOOLEAN
 
 	NTSTATUS		ntStatus		= STATUS_UNSUCCESSFUL;
 
+	CKrnlStr		DevName;
+
 	CLog			Log;
 	CFileName		FileName;
 	CProcWhiteList	ProcWhiteList;
@@ -193,6 +195,33 @@ BOOLEAN
 		}
 
 		DirControlList.Init();
+
+// 		pDriverObject->DriverExtension->AddDevice
+// 
+// 		if (!DevName.Set(L"\\Device\\SdBoundaryProtect", wcslen(L"\\Device\\SdBoundaryProtect")))
+// 		{
+// 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DevName.Set failed");
+// 			__leave;
+// 		}
+// 
+// 		ntStatus = IoCreateDevice(
+// 			pDriverObject,
+// 			0,
+// 			DevName.Get(),
+// 			FILE_DEVICE_FILE_SYSTEM,
+// 			FILE_DEVICE_SECURE_OPEN,
+// 			FALSE,
+// 			&m_pDevObj
+// 			);
+// 		if (!NT_SUCCESS(ntStatus))
+// 		{
+// 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoCreateDevice failed. (%x)",
+// 				ntStatus);
+// 
+// 			__leave;
+// 		}
+// 
+// 		IoRegisterDeviceInterface
 
 		// Register with FltMgr to tell it our callback routines
 		ntStatus = FltRegisterFilter(
@@ -229,6 +258,12 @@ BOOLEAN
 		if (!bRet)
 		{
 			Log.Unload();
+
+			if (m_pDevObj)
+			{
+				IoDeleteDevice(m_pDevObj);
+				m_pDevObj = NULL;
+			}
 
 			if (m_pFltFilter)
 			{
@@ -324,6 +359,12 @@ NTSTATUS
 		CMinifilter::ms_pMfIns->m_bAllowFltWork = FALSE;
 
 		Log.Unload();
+
+		if (CMinifilter::ms_pMfIns->m_pDevObj)
+		{
+			IoDeleteDevice(CMinifilter::ms_pMfIns->m_pDevObj);
+			CMinifilter::ms_pMfIns->m_pDevObj = NULL;
+		}
 
 		if (CMinifilter::ms_pMfIns->m_pFltFilter)
 		{
@@ -1114,7 +1155,13 @@ FLT_PREOP_CALLBACK_STATUS
 {
 	FLT_PREOP_CALLBACK_STATUS	CallbackStatus	= FLT_PREOP_SUCCESS_NO_CALLBACK;
 
+	REGISTER_DIR_INFO			RegisterDirInfo;
+
+	CKrnlStr					DirAppName;
+	CKrnlStr					DirDevName;
+
 	CProcWhiteList				ProcWhiteList;
+	CDirControlList				DirControlList;
 
 
 	UNREFERENCED_PARAMETER(FltObjects);
@@ -1123,67 +1170,147 @@ FLT_PREOP_CALLBACK_STATUS
 
 	__try
 	{
-		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_ALL_MODULE_INIT | MINIFILTER_ENV_TYPE_ALLOW_WORK))
+		RtlZeroMemory(&RegisterDirInfo, sizeof(RegisterDirInfo));
+
+		if (FLT_IS_FASTIO_OPERATION(Data))
+		{
+			CallbackStatus = FLT_PREOP_DISALLOW_FASTIO;
+			__leave;
+		}
+
+		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_ALL_MODULE_INIT))
 			__leave;
 
 		if (ProcWhiteList.IsIn((ULONG)PsGetCurrentProcessId()))
 			__leave;
 
-		Data->Iopb->Parameters.DeviceIoControl;
-
-		/*
-
-		KdPrint(("Enter HelloWDMIOControl\n"));
-
-		PDEVICE_EXTENSION pdx = (PDEVICE_EXTENSION)fdo->DeviceExtension;
-		PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(Irp);
-
-		//得到输入缓冲区大小
-		ULONG cbin = stack->Parameters.DeviceIoControl.InputBufferLength;
-
-		//得到输出缓冲区大小
-		ULONG cbout = stack->Parameters.DeviceIoControl.OutputBufferLength;
-
-		//得到IOCTRL码
-		ULONG code = stack->Parameters.DeviceIoControl.IoControlCode;
-
-		NTSTATUS status;
-		ULONG info = 0;
-		switch (code)
+		switch (Data->Iopb->Parameters.DeviceIoControl.Direct.IoControlCode)
 		{
-		case IOCTL_ENCODE:
+		case IOCTL_UM_START:
 			{
-				//获取输入缓冲区，IRP_MJ_DEVICE_CONTROL的输入都是通过buffered io的方式
-				char* inBuf = (char*)Irp->AssociatedIrp.SystemBuffer;
-				for (ULONG i = 0; i < cbin; i++)//将输入缓冲区里面的每个字节和m亦或
+				CMinifilter::ms_pMfIns->AllowFltWork();
+				break;
+			}
+		case IOCTL_UM_STOP:
+			{
+				CMinifilter::ms_pMfIns->DisallowFltWork();
+				break;
+			}
+		case IOCTL_UM_DIR_ADD:
+			{
+				RegisterDirInfo.Type = ((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.DirControlType;
+
+				if (!DirAppName.Set(
+					((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName,
+					wcslen(((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName)))
 				{
-					inBuf[i] = inBuf[i] ^ 'm';
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_ADD] DirAppName.Set failed. Dir(%lS)",
+						((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName);
+
+					__leave;
 				}
 
-				//获取输出缓冲区，这里使用了直接方式，见CTL_CODE的定义，使用了METHOD_IN_DIRECT。所以需要通过直接方式获取out buffer
-				KdPrint(("user address: %x, this address should be same to user mode addess.\n", MmGetMdlVirtualAddress(Irp->MdlAddress)));
-				//获取内核模式下的地址，这个地址一定> 0x7FFFFFFF,这个地址和上面的用户模式地址对应同一块物理内存
-				char* outBuf = (char*)MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);
+				if (!CFileName::ToDev(&DirAppName, &RegisterDirInfo.FileName, Data->Iopb->TargetInstance))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_ADD] CFileName::ToDev failed. Dir(%wZ)",
+						DirAppName.Get());
 
-				ASSERT(cbout >= cbin);
-				RtlCopyMemory(outBuf, inBuf, cbin);
-				info = cbin;
-				status = STATUS_SUCCESS;
+					__leave;
+				}
+
+				if (!DirControlList.Insert(&RegisterDirInfo))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_ADD] DirControlList.Insert failed. Dir(%wZ)",
+						RegisterDirInfo.FileName.Get());
+
+					__leave;
+				}
+
+				break;
 			}
-			break;
+		case IOCTL_UM_DIR_DELETE:
+			{
+				if (!DirAppName.Set(
+					((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName,
+					wcslen(((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName)))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_DELETE] DirAppName.Set failed. Dir(%lS)",
+						((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName);
+
+					__leave;
+				}
+
+				if (!CFileName::ToDev(&DirAppName, &DirDevName, Data->Iopb->TargetInstance))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_DELETE] CFileName::ToDev failed. Dir(%wZ)",
+						DirAppName.Get());
+
+					__leave;
+				}
+
+				if (!DirControlList.Delete(&DirDevName))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_DELETE] DirControlList.Delete failed. Dir(%wZ)",
+						DirDevName.Get());
+
+					__leave;
+				}
+
+				break;
+			}
+		case IOCTL_UM_DIR_CLEAR:
+			{
+				if (!DirControlList.Clear())
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_CLEAR] DirControlList.Clear failed");
+					__leave;
+				}
+
+				break;
+			}
+		case IOCTL_UM_PROC_ADD:
+			{
+				if (!ProcWhiteList.Insert(((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Proc.ulPid))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_ADD] ProcWhiteList.Insert failed. Pid(%d)",
+						((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Proc.ulPid);
+
+					__leave;
+				}
+
+				break;
+			}
+		case IOCTL_UM_PROC_DELETE:
+			{
+				if (!ProcWhiteList.Delete(((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Proc.ulPid))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_DELETE] ProcWhiteList.Delete failed. Pid(%d)",
+						((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Proc.ulPid);
+
+					__leave;
+				}
+
+				break;
+			}
+		case IOCTL_UM_PROC_CLEAR:
+			{
+				if (!ProcWhiteList.Clear())
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_CLEAR] ProcWhiteList.Clear failed");
+
+					__leave;
+				}
+
+				break;
+			}
 		default:
-			status = STATUS_INVALID_VARIANT;
-			break;
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoControlCode error. IoControlCode(%x)",
+					Data->Iopb->Parameters.DeviceIoControl.Direct.IoControlCode);
+
+				__leave;
+			}
 		}
-
-		Irp->IoStatus.Status = status;
-		Irp->IoStatus.Information = info;
-		IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-		KdPrint(("Leave HelloWDMIOControl\n"));
-		return status;
-
-		*/
 	}
 	__finally
 	{
@@ -1192,3 +1319,28 @@ FLT_PREOP_CALLBACK_STATUS
 
 	return CallbackStatus;
 }
+
+VOID
+	CMinifilter::DisallowFltWork()
+{
+	GetLock();
+
+	m_bAllowFltWork = FALSE;
+
+	FreeLock();
+
+	return;
+}
+
+VOID
+	CMinifilter::AllowFltWork()
+{
+	GetLock();
+
+	m_bAllowFltWork = TRUE;
+
+	FreeLock();
+
+	return;
+}
+

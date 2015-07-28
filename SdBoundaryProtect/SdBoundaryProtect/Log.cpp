@@ -681,7 +681,7 @@ BOOLEAN
 
 		if (!ms_ulSectorSize)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_ulSectorSize");
+			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_ulSectorSize");
 			__leave;
 		}
 
@@ -796,7 +796,7 @@ BOOLEAN
 
 		if (!InitLogFileName())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"InitLogFileName failed");
+			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"InitLogFileName failed");
 			__leave;
 		}
 
@@ -927,7 +927,7 @@ BOOLEAN
 
 		if (!ms_pLogDir->GetLenCh())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogDir->GetString failed");
+			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogDir->GetLenCh failed");
 			__leave;
 		}
 
@@ -1014,7 +1014,7 @@ BOOLEAN
 
 		if (!ms_bCanInsertLog)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"not ready for insert");
+			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"not ready for insert");
 			__leave;
 		}
 

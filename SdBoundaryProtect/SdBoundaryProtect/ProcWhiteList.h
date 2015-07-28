@@ -200,14 +200,6 @@ public:
 		__in ULONG ulPid
 		);
 
-private:
-	static LIST_ENTRY		ms_ListHead;
-	static ERESOURCE		ms_Lock;
-	static KSPIN_LOCK		ms_SpLock;
-
-	KIRQL					m_Irql;
-	LONG					m_LockRef;
-
 	/*++
 	*
 	* Routine Description:
@@ -304,6 +296,14 @@ private:
 		Insert(
 		__in ULONG ulPid
 		);
+
+private:
+	static LIST_ENTRY		ms_ListHead;
+	static ERESOURCE		ms_Lock;
+	static KSPIN_LOCK		ms_SpLock;
+
+	KIRQL					m_Irql;
+	LONG					m_LockRef;
 
 	/*++
 	*

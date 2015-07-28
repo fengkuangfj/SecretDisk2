@@ -236,6 +236,7 @@ private:
 	BOOLEAN						m_bAllowFltWork;
 	FLT_OPERATION_REGISTRATION	m_Callbacks[CALLBACKS_NUM];
 	FLT_REGISTRATION			m_FltRegistration;
+	PDEVICE_OBJECT				m_pDevObj;
 
 	/*++
 	*
@@ -793,4 +794,10 @@ private:
 		__in_opt	PVOID						CompletionContext,
 		__in		FLT_POST_OPERATION_FLAGS	Flags
 		);
+
+	VOID
+		DisallowFltWork();
+
+	VOID
+		AllowFltWork();
 };

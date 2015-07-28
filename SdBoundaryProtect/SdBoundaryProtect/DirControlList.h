@@ -38,13 +38,6 @@
 #define MEMORY_TAG_DIR_CONTROL_LIST	'LCTD'								// DTCL
 #define OFFSETOF(TYPE, MEMBER)		((size_t) & ((TYPE *)0)->MEMBER)
 
-typedef enum _DIR_CONTROL_TYPE
-{
-	DIR_CONTROL_TYPE_NULL	= 0x00000000,
-	DIR_CONTROL_TYPE_ACCESS = 0x00000001,
-	DIR_CONTROL_TYPE_HIDE	= 0x00000002
-} DIR_CONTROL_TYPE, *PDIR_CONTROL_TYPE, *LPDIR_CONTROL_TYPE;
-
 typedef struct _DIR_CONTROL_LIST
 {
 	CKrnlStr			RuleEx;				// 规则路径表达式
@@ -257,13 +250,38 @@ public:
 		__inout PFLT_CALLBACK_DATA	pData
 		);
 
-private:
-	static LIST_ENTRY	ms_ListHead;
-	static ERESOURCE	ms_Lock;
-	static KSPIN_LOCK	ms_SpLock;
-
-	KIRQL				m_Irql;
-	LONG				m_LockRef;
+	/*++
+	*
+	* Routine Description:
+	*
+	*		插入一条规则
+	*
+	* Arguments:
+	*
+	*		lpRegisterDirInfo - 要添加的文件夹信息
+	*
+	* Return Value:
+	*
+	*		TRUE	- 成功
+	*		FALSE	- 失败
+	*
+	* Author:
+	*
+	*		岳翔
+	*
+	* Complete Time:
+	*
+	*		无
+	*
+	* Modify Record:
+	*
+	*		无
+	*
+	--*/
+	BOOLEAN
+		Insert(
+		__in LPREGISTER_DIR_INFO lpRegisterDirInfo
+		);
 
 	/*++
 	*
@@ -300,11 +318,11 @@ private:
 	*
 	* Routine Description:
 	*
-	*		插入一条规则
+	*		删除一条规则
 	*
 	* Arguments:
 	*
-	*		lpRegisterDirInfo - 要添加的文件夹信息
+	*		RuleEx - 规则表达式
 	*
 	* Return Value:
 	*
@@ -325,9 +343,17 @@ private:
 	*
 	--*/
 	BOOLEAN
-		Insert(
-		__in LPREGISTER_DIR_INFO lpRegisterDirInfo
+		Delete(
+		__in CKrnlStr* RuleEx
 		);
+
+private:
+	static LIST_ENTRY	ms_ListHead;
+	static ERESOURCE	ms_Lock;
+	static KSPIN_LOCK	ms_SpLock;
+
+	KIRQL				m_Irql;
+	LONG				m_LockRef;
 
 	/*++
 	*
@@ -419,39 +445,6 @@ private:
 	--*/
 	LPDIR_CONTROL_LIST
 		Get(
-		__in CKrnlStr* RuleEx
-		);
-
-	/*++
-	*
-	* Routine Description:
-	*
-	*		删除一条规则
-	*
-	* Arguments:
-	*
-	*		RuleEx - 规则表达式
-	*
-	* Return Value:
-	*
-	*		TRUE	- 成功
-	*		FALSE	- 失败
-	*
-	* Author:
-	*
-	*		岳翔
-	*
-	* Complete Time:
-	*
-	*		无
-	*
-	* Modify Record:
-	*
-	*		无
-	*
-	--*/
-	BOOLEAN
-		Delete(
 		__in CKrnlStr* RuleEx
 		);
 };

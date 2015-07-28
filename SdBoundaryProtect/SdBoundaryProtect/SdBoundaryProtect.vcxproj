@@ -76,7 +76,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Comm\CommPublic.h" />
-    <ClInclude Include="..\..\Comm\Public.h" />
     <ClInclude Include="DirControlList.h" />
     <ClInclude Include="DirHide.h" />
     <ClInclude Include="File.h" />
@@ -85,6 +84,7 @@
     <ClInclude Include="Log.h" />
     <ClInclude Include="Minifilter.h" />
     <ClInclude Include="ProcWhiteList.h" />
+    <ClInclude Include="Public.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>

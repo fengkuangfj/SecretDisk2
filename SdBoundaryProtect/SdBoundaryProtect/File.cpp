@@ -70,7 +70,7 @@ BOOLEAN
 	{
 		if (!pData || !pFileName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error. pData(%p) pFileName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p)",
 				pData, pFileName);
 
 			__leave;
@@ -265,7 +265,7 @@ FILE_OBJECT_TYPE
 	{
 		if (!pData || !pFileName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error. pData(%p) pFileName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p)",
 				pData, pFileName);
 
 			__leave;
@@ -524,7 +524,7 @@ BOOLEAN
 	{
 		if (!pData || !pFileName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error. pData(%p) pFileName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p)",
 				pData, pFileName);
 
 			__leave;
@@ -610,7 +610,7 @@ BOOLEAN
 	{
 		if (!pData || !pFileName || !pFileAttributes)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error. pData(%p) pFileName(%p) pFileAttributes(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p) pFileAttributes(%p)",
 				pData, pFileName, pFileAttributes);
 
 			__leave;
@@ -808,7 +808,7 @@ BOOLEAN
 	{
 		if (!pData || !pFileName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error. pData(%p) pFileName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p)",
 				pData, pFileName);
 
 			__leave;

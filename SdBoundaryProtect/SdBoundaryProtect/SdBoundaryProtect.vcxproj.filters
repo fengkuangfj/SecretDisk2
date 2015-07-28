@@ -45,10 +45,10 @@
     <ClInclude Include="File.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Comm\Public.h">
+    <ClInclude Include="..\..\Comm\CommPublic.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Comm\CommPublic.h">
+    <ClInclude Include="Public.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

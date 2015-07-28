@@ -265,22 +265,6 @@ BOOLEAN
 			__leave;
 		}
 
-		// 		if (!FileName.GetFltInstance(&lpRegisterDirInfo->FileName, &pFltInstance, TYPE_APP))
-		// 		{
-		// 			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"FileName.GetFltInstance failed. Path(%wZ)",
-		// 				lpRegisterDirInfo->FileName.Get());
-		// 
-		// 			__leave;
-		// 		}
-		// 
-		// 		if (!CFileName::ToDev(&lpRegisterDirInfo->FileName, &PathDev, pFltInstance))
-		// 		{
-		// 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::ToDev failed. Path(%wZ)",
-		// 				lpRegisterDirInfo->FileName.Get());
-		// 
-		// 			__leave;
-		// 		}
-
 		if (!RuleEx.Set(&lpRegisterDirInfo->FileName))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"RuleEx.Set failed. Dir(%wZ)",
@@ -406,7 +390,7 @@ BOOLEAN
 
 BOOLEAN
 	CDirControlList::Delete(
-	__in CKrnlStr* RuleEx
+	__in CKrnlStr* pRuleEx
 	)
 {
 	BOOLEAN				bRet				= FALSE;
@@ -418,25 +402,61 @@ BOOLEAN
 	{
 		GetLock();
 
-		if (!RuleEx)
+		if (!pRuleEx)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
+		if (L'\\' == *(pRuleEx->GetString() + pRuleEx->GetLenCh() - 1))
+		{
+			if (!pRuleEx->Append(L"*", wcslen(L"*")))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pRuleEx->Append failed. Rule(%wZ)",
+					pRuleEx->Get());
+
+				__leave;
+			}
+		}
+		else if (L'*' != *(pRuleEx->GetString() + pRuleEx->GetLenCh() - 1))
+		{
+			if (!pRuleEx->Append(L"\\*", wcslen(L"\\*")))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pRuleEx->Append failed. Dir(%wZ)",
+					pRuleEx->Get());
+
+				__leave;
+			}
+		}
+		else
+		{
+			if (L'\\' != *(pRuleEx->GetString() + pRuleEx->GetLenCh() - 2))
+			{
+				*(pRuleEx->GetString() + pRuleEx->GetLenCh() - 1) = L'\\';
+
+				if (!pRuleEx->Append(L"*", wcslen(L"*")))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pRuleEx->Append failed. Rule(%wZ)",
+						pRuleEx->Get());
+
+					__leave;
+				}
+			}
+		}
+
 		if (IsListEmpty(&ms_ListHead))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Need not del. Rule(%wZ)",
-				RuleEx->Get());
+				pRuleEx->Get());
 
 			__leave;
 		}
 
-		lpDirProtectInfo = Get(RuleEx);
+		lpDirProtectInfo = Get(pRuleEx);
 		if (!lpDirProtectInfo)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L" Not exist. Need not del. Rule(%wZ)",
-				RuleEx->Get());
+				pRuleEx->Get());
 
 			__leave;
 		}
@@ -456,7 +476,7 @@ BOOLEAN
 
 LPDIR_CONTROL_LIST
 	CDirControlList::Get(
-	__in CKrnlStr* RuleEx
+	__in CKrnlStr* pRuleEx
 	)
 {
 	LPDIR_CONTROL_LIST	lpDirProtectInfo	= NULL;
@@ -468,16 +488,52 @@ LPDIR_CONTROL_LIST
 	{
 		GetLock();
 
-		if(!RuleEx)
+		if(!pRuleEx)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
+		if (L'\\' == *(pRuleEx->GetString() + pRuleEx->GetLenCh() - 1))
+		{
+			if (!pRuleEx->Append(L"*", wcslen(L"*")))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"RuleEx->Append failed. Rule(%wZ)",
+					pRuleEx->Get());
+
+				__leave;
+			}
+		}
+		else if (L'*' != *(pRuleEx->GetString() + pRuleEx->GetLenCh() - 1))
+		{
+			if (!pRuleEx->Append(L"\\*", wcslen(L"\\*")))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"RuleEx->Append failed. Dir(%wZ)",
+					pRuleEx->Get());
+
+				__leave;
+			}
+		}
+		else
+		{
+			if (L'\\' != *(pRuleEx->GetString() + pRuleEx->GetLenCh() - 2))
+			{
+				*(pRuleEx->GetString() + pRuleEx->GetLenCh() - 1) = L'\\';
+
+				if (!pRuleEx->Append(L"*", wcslen(L"*")))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"RuleEx->Append failed. Rule(%wZ)",
+						pRuleEx->Get());
+
+					__leave;
+				}
+			}
+		}
+
 		if (IsListEmpty(&ms_ListHead))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Need not del. Rule(%wZ)",
-				RuleEx->Get());
+				pRuleEx->Get());
 
 			__leave;
 		}
@@ -487,11 +543,11 @@ LPDIR_CONTROL_LIST
 			lpDirProtectInfo = CONTAINING_RECORD(pNode, DIR_CONTROL_LIST, List);
 			if (!lpDirProtectInfo)
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Rule(%wZ)", RuleEx->Get());
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Rule(%wZ)", pRuleEx->Get());
 				break;
 			}
 
-			if (lpDirProtectInfo->RuleEx.Equal(RuleEx, TRUE))
+			if (lpDirProtectInfo->RuleEx.Equal(pRuleEx, TRUE))
 				break;
 		}
 	}
