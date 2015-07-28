@@ -105,6 +105,7 @@ public:
 	static CMinifilter *	ms_pMfIns;
 
 	PFLT_FILTER				m_pFltFilter;
+	PDEVICE_OBJECT			m_pDevObj;
 
 	/*++
 	*
@@ -236,7 +237,6 @@ private:
 	BOOLEAN						m_bAllowFltWork;
 	FLT_OPERATION_REGISTRATION	m_Callbacks[CALLBACKS_NUM];
 	FLT_REGISTRATION			m_FltRegistration;
-	PDEVICE_OBJECT				m_pDevObj;
 
 	/*++
 	*
@@ -800,4 +800,9 @@ private:
 
 	VOID
 		AllowFltWork();
+
+	BOOLEAN
+		CreateSymbolicLinkName(
+		__in PDRIVER_OBJECT pDriverObj
+		);
 };

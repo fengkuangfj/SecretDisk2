@@ -129,7 +129,7 @@ NTSTATUS
 	UNREFERENCED_PARAMETER(RegistryPath);
 
 
-	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
+	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"\nbegin");
 
 	__try
 	{
@@ -153,6 +153,115 @@ NTSTATUS
 	return ntStatus;
 }
 
+NTSTATUS
+	SbpAddDevice(
+	__in struct _DRIVER_OBJECT * pDriverObject,
+	__in struct _DEVICE_OBJECT * pPhysicalDeviceObject
+	)
+{
+	NTSTATUS		ntStatus		= STATUS_UNSUCCESSFUL;
+
+	GUID			Guid			= {0x14895ae5, 0x176f, 0x4e68, {0xbc, 0x15, 0x3f, 0x18, 0x40, 0xc2, 0x5d, 0x2b}};
+
+	PFILE_OBJECT	pFileObj		= NULL;
+	PDEVICE_OBJECT	pTargetDevObj	= NULL;
+
+	CKrnlStr		SymName;
+	CKrnlStr		TargetDevName;
+
+
+	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
+
+	__try
+	{
+		// 1.
+		ntStatus = IoCreateDevice(
+			pDriverObject,
+			0,
+			NULL,
+			FILE_DEVICE_FILE_SYSTEM,
+			FILE_DEVICE_SECURE_OPEN,
+			FALSE,
+			&CMinifilter::ms_pMfIns->m_pDevObj
+			);
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoCreateDevice failed. (%x)",
+				ntStatus);
+
+			__leave;
+		}
+
+		// 2.
+		if (!SymName.Init())
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"SymName.Init failed");
+			__leave;
+		}
+
+		ntStatus = IoRegisterDeviceInterface(
+			pPhysicalDeviceObject,
+			&Guid,
+			NULL,
+			SymName.Get()		
+			);
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoRegisterDeviceInterface failed. (%x)",
+				ntStatus);
+
+			__leave;
+		}
+
+		// 3.
+		CMinifilter::ms_pMfIns->m_pDevObj->DeviceExtension;
+
+		// 4.
+
+		// 5.
+
+		// 6.
+
+		// 7.
+		if (!TargetDevName.Set(L"Ntfs", wcslen(L"Ntfs")))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TargetDevName.Set failed");
+			__leave;
+		}
+
+		ntStatus = IoGetDeviceObjectPointer(
+			TargetDevName.Get(),
+			FILE_ALL_ACCESS,
+			&pFileObj,
+			&pTargetDevObj
+			);
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoGetDeviceObjectPointer failed. (%x)",
+				ntStatus);
+
+			__leave;
+		}
+
+		IoAttachDeviceToDeviceStack(CMinifilter::ms_pMfIns->m_pDevObj, pTargetDevObj);
+
+		// 8.
+		CMinifilter::ms_pMfIns->m_pDevObj->Flags &= ~DO_DEVICE_INITIALIZING;
+
+		// 9.
+
+		ntStatus = STATUS_SUCCESS;
+	}
+	__finally
+	{
+		;
+	}
+
+	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"end");
+
+	return ntStatus;
+}
+
 BOOLEAN
 	CMinifilter::Register(
 	__in PDRIVER_OBJECT pDriverObject
@@ -161,8 +270,6 @@ BOOLEAN
 	BOOLEAN			bRet			= FALSE;
 
 	NTSTATUS		ntStatus		= STATUS_UNSUCCESSFUL;
-
-	CKrnlStr		DevName;
 
 	CLog			Log;
 	CFileName		FileName;
@@ -196,32 +303,11 @@ BOOLEAN
 
 		DirControlList.Init();
 
-// 		pDriverObject->DriverExtension->AddDevice
-// 
-// 		if (!DevName.Set(L"\\Device\\SdBoundaryProtect", wcslen(L"\\Device\\SdBoundaryProtect")))
-// 		{
-// 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DevName.Set failed");
-// 			__leave;
-// 		}
-// 
-// 		ntStatus = IoCreateDevice(
-// 			pDriverObject,
-// 			0,
-// 			DevName.Get(),
-// 			FILE_DEVICE_FILE_SYSTEM,
-// 			FILE_DEVICE_SECURE_OPEN,
-// 			FALSE,
-// 			&m_pDevObj
-// 			);
-// 		if (!NT_SUCCESS(ntStatus))
-// 		{
-// 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoCreateDevice failed. (%x)",
-// 				ntStatus);
-// 
-// 			__leave;
-// 		}
-// 
-// 		IoRegisterDeviceInterface
+		if (!CreateSymbolicLinkName(pDriverObject))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CreateSymbolicLinkName failed");
+			__leave;
+		}
 
 		// Register with FltMgr to tell it our callback routines
 		ntStatus = FltRegisterFilter(
@@ -1344,3 +1430,82 @@ VOID
 	return;
 }
 
+BOOLEAN
+	CMinifilter::CreateSymbolicLinkName(
+	__in PDRIVER_OBJECT pDriverObj
+	)
+{
+	BOOLEAN			bRet		= FALSE;
+
+	NTSTATUS		ntStatus	= STATUS_UNSUCCESSFUL;
+
+	GUID			Guid		= {0x26e0d1e0L, 0x8189, 0x12e0, {0x99, 0x14, 0x08, 0x00, 0x22, 0x30, 0x19, 0x03}};
+
+	CKrnlStr		DeviceName;
+	CKrnlStr		SymbolicLinkName;
+	CKrnlStr		DefaultSDDLString;
+
+
+	__try
+	{
+		if (!pDriverObj)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
+			__leave;
+		}
+
+		if (!DeviceName.Set(L"\\Device\\SdBoundaryProtect", wcslen(L"\\Device\\SdBoundaryProtect")))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DeviceName.Set failed");
+			__leave;
+		}
+
+		if (!DefaultSDDLString.Set(L"D:P(A;;GA;;;WD)", wcslen(L"D:P(A;;GA;;;WD)")))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DefaultSDDLString.Set failed");
+			__leave;
+		}
+
+		ntStatus = IoCreateDeviceSecure(
+			pDriverObj,
+			0,
+			DeviceName.Get(),
+			FILE_DEVICE_FILE_SYSTEM,
+			FILE_DEVICE_SECURE_OPEN,
+			FALSE,
+			DefaultSDDLString.Get(),
+			&Guid,
+			&CMinifilter::ms_pMfIns->m_pDevObj
+			);
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoCreateDevice failed. (%x)",
+				ntStatus);
+
+			__leave;
+		}
+
+		if (!SymbolicLinkName.Set(L"\\DosDevices\\Global\\SdBoundaryProtect", wcslen(L"\\DosDevices\\Global\\SdBoundaryProtect")))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"SymbolicLinkName.Set failed");
+			__leave;
+		}
+
+		ntStatus = IoCreateSymbolicLink(SymbolicLinkName.Get(), DeviceName.Get());
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoCreateSymbolicLink failed. (%x)",
+				ntStatus);
+
+			__leave;
+		}
+
+		bRet = TRUE;
+	}
+	__finally
+	{
+		;
+	}
+
+	return bRet;
+}

@@ -4,7 +4,8 @@ DRIVERTYPE=FS
 
 
 TARGETLIBS= $(TARGETLIBS) \
-            $(IFSKIT_LIB_PATH)\fltMgr.lib
+            $(IFSKIT_LIB_PATH)\fltMgr.lib \
+			$(IFSKIT_LIB_PATH)\Wdmsec.lib
 
 SOURCES=Public.cpp \
 		KrnlStr.cpp \

@@ -42,6 +42,7 @@ extern "C"
 #include <fltKernel.h>
 #include <windef.h>
 #include <wdm.h>
+#include <Wdmsec.h>
 
 #define NTSTRSAFE_NO_DEPRECATE
 #include <Ntstrsafe.h>
