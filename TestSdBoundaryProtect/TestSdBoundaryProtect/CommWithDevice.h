@@ -9,8 +9,8 @@ class CCommWithDevice
 {
 public:
 	BOOL
-		SendMessage(
-		__in LPWSTR	lpDeviceName,
+		SendMsg(
+		__in LPWSTR	lpSymbolicLinkName,
 		__in ULONG	ulType,
 		__in LPVOID	lpInputBuf,
 		__in ULONG	ulInputBufLenB

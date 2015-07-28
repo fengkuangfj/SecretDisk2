@@ -2,8 +2,8 @@
 #include "CommWithDevice.h"
 
 BOOL
-	CCommWithDevice::SendMessage(
-	__in LPWSTR	lpDeviceName,
+	CCommWithDevice::SendMsg(
+	__in LPWSTR	lpSymbolicLinkName,
 	__in ULONG	ulIoControlCode,
 	__in LPVOID	lpInBuffer,
 	__in ULONG	ulInBufferSizeB
@@ -16,11 +16,11 @@ BOOL
 
 	__try
 	{
-		if (!lpDeviceName || !ulIoControlCode || !lpInBuffer || !ulInBufferSizeB)
+		if (!lpSymbolicLinkName || !ulIoControlCode || !lpInBuffer || !ulInBufferSizeB)
 			__leave;
 
 		hDevice = CreateFile(
-			lpDeviceName,
+			lpSymbolicLinkName,
 			SYNCHRONIZE,
 			0,
 			NULL,
@@ -54,7 +54,7 @@ BOOL
 	}
 	__finally
 	{
-		if (hDevice)
+		if (INVALID_HANDLE_VALUE != hDevice)
 		{
 			CloseHandle(hDevice);
 			hDevice = INVALID_HANDLE_VALUE;

@@ -237,6 +237,7 @@ private:
 	BOOLEAN						m_bAllowFltWork;
 	FLT_OPERATION_REGISTRATION	m_Callbacks[CALLBACKS_NUM];
 	FLT_REGISTRATION			m_FltRegistration;
+	CKrnlStr					m_SymbolicLinkName;
 
 	/*++
 	*
