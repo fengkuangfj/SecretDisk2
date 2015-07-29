@@ -42,7 +42,7 @@
 #define	MEMORY_TAG_POST_DIRECTORY_CONTROL				'CDOP'			// PODC
 #define MEMORY_TAG_INSTANCE_TAG							'TTSI' 			// ISTT
 #define	MEMORY_TAG_PRE_POST_DIRECTORY_CONTRL_CONTEXT	'CDPP'			// PPDC
-#define CALLBACKS_NUM									5
+#define CALLBACKS_NUM									4
 #define MIN_SECTOR_SIZE									0x200
 
 typedef enum _MINIFILTER_ENV_TYPE
@@ -230,6 +230,12 @@ public:
 		CheckEnv(
 		__in ULONG ulMinifilterEnvType
 		);
+
+	VOID
+		DisallowFltWork();
+
+	VOID
+		AllowFltWork();
 
 private:
 	BOOLEAN						m_AllModuleInit;
@@ -653,54 +659,6 @@ private:
 		__deref_out_opt PVOID					*	CompletionContext
 		);
 
-		/*++
-	*
-	* Routine Description:
-	*
-	*		This routine is the main pre-operation dispatch routine for this
-	*		miniFilter. Since this is just a simple passThrough miniFilter it
-	*		does not do anything with the callbackData but rather return
-	*		FLT_PREOP_SUCCESS_WITH_CALLBACK thereby passing it down to the next
-	*		miniFilter in the chain.
-	*
-	*		This is non-pageable because it could be called on the paging path
-	*
-	* Arguments:
-	*
-	*		Data				-	Pointer to the filter callbackData that is passed to us.
-	*
-	*		FltObjects			-	Pointer to the FLT_RELATED_OBJECTS data structure containing
-	*								opaque handles to this filter, instance, its associated volume and
-	*								file object.
-	*
-	*		CompletionContext	-	The context for the completion routine for this
-	*								operation.
-	*
-	* Return Value:
-	*
-	*		The return value is the status of the operation.
-	*
-	* Author:
-	*
-	*		‘¿œË
-	*
-	* Complete Time:
-	*
-	*		Œﬁ
-	*
-	* Modify Record:
-	*
-	*		Œﬁ
-	*
-	--*/
-	static
-		FLT_PREOP_CALLBACK_STATUS
-		PreDeviceControl(
-		__inout			PFLT_CALLBACK_DATA			Data,
-		__in			PCFLT_RELATED_OBJECTS		FltObjects,
-		__deref_out_opt PVOID					*	CompletionContext
-		);
-
 	/*++
 	*
 	* Routine Description:
@@ -794,16 +752,5 @@ private:
 		__in		PCFLT_RELATED_OBJECTS		FltObjects,
 		__in_opt	PVOID						CompletionContext,
 		__in		FLT_POST_OPERATION_FLAGS	Flags
-		);
-
-	VOID
-		DisallowFltWork();
-
-	VOID
-		AllowFltWork();
-
-	BOOLEAN
-		CreateSymbolicLinkName(
-		__in PDRIVER_OBJECT pDriverObj
 		);
 };

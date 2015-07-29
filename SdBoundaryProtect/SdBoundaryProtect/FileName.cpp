@@ -1916,8 +1916,11 @@ LPVOLUME_NAME_INFO
 				__leave;
 			}
 
-			if (lpVolNameInfo->AppName.Equal(pName, TRUE))
-				__leave;
+			if (!lpVolNameInfo->bOnlyDevName)
+			{
+				if (lpVolNameInfo->AppName.Equal(pName, TRUE))
+					__leave;
+			}
 		}
 	}
 	__finally
@@ -2034,7 +2037,7 @@ LPVOLUME_NAME_INFO
 
 		if (IsListEmpty(&FileName.ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty");
+			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty");
 			__leave;
 		}
 

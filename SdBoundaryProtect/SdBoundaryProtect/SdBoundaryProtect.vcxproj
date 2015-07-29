@@ -76,6 +76,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Comm\CommPublic.h" />
+    <ClInclude Include="Comm.h" />
     <ClInclude Include="DirControlList.h" />
     <ClInclude Include="DirHide.h" />
     <ClInclude Include="File.h" />
@@ -93,6 +94,7 @@
     <None Include="sources" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Comm.cpp" />
     <ClCompile Include="DirControlList.cpp" />
     <ClCompile Include="DirHide.cpp" />
     <ClCompile Include="File.cpp" />

@@ -139,7 +139,7 @@ VOID
 						{
 							if (!Log.Pop(&LogInfo))
 							{
-								KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"[STATUS_TIMEOUT] Log.Pop failed");
+								// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"[STATUS_TIMEOUT] Log.Pop failed");
 								break;
 							}
 
@@ -495,7 +495,7 @@ BOOLEAN
 		pNode = RemoveHeadList(&ms_ListHead);
 		if (pNode == &ms_ListHead)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"list empty");
+			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"list empty");
 			__leave;
 		}
 
@@ -699,7 +699,7 @@ BOOLEAN
 
 		if (!ms_pLogFile || !ms_pLogFile->GetLenCh())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile not ready");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile not ready");
 			__leave;
 		}
 
@@ -1111,6 +1111,14 @@ BOOLEAN
 		if (!FileName.GetSectorSize(pLogDir, &ms_ulSectorSize))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FileName.GetSectorSize failed. Dir(%wZ)",
+				pLogDir->Get());
+
+			__leave;
+		}
+
+		if (!FileName.GetFltInstance(pLogDir, &ms_pFltInstance))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FileName.GetFltInstance failed. Dir(%wZ)",
 				pLogDir->Get());
 
 			__leave;

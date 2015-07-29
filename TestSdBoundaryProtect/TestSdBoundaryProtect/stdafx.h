@@ -13,7 +13,10 @@
 // TODO: 在此处引用程序需要的其他头文件
 #include <conio.h>
 #include <Windows.h>
+#include <Fltuser.h>
+
+#pragma comment(lib, "FltLib.lib")
 
 #include "DriveControl.h"
 #include "../../Comm/CommPublic.h"
-#include "CommWithDevice.h"
+#include "Comm.h"

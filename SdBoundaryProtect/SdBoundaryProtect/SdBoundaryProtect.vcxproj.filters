@@ -51,6 +51,9 @@
     <ClInclude Include="Public.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Comm.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="makefile" />
@@ -82,6 +85,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="File.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Comm.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

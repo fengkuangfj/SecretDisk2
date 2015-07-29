@@ -27,10 +27,10 @@
     <ClInclude Include="DriveControl.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="CommWithDevice.h">
+    <ClInclude Include="..\..\Comm\CommPublic.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Comm\CommPublic.h">
+    <ClInclude Include="Comm.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -44,7 +44,7 @@
     <ClCompile Include="DriveControl.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CommWithDevice.cpp">
+    <ClCompile Include="Comm.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

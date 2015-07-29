@@ -60,41 +60,48 @@ int _tmain(int argc, _TCHAR* argv[])
 	COMM_INFO		CommInfo		= {0};
 
 	CDriveControl	DriveControl;
-	CCommWithDevice CommWithDevice;
+	CComm			Comm;
 
 
 	__try
 	{
 		DriveControl.Stop(L"SdBoundaryProtect");
 
-		DriveControl.Install(L"SdBoundaryProtect", L"C:\\Users\\Administrator\\Desktop\\SdBoundaryProtect.sys");
+// 		DriveControl.Delete(L"SdBoundaryProtect");
+// 
+// 		DriveControl.Install(L"SdBoundaryProtect", L"C:\\Users\\Administrator\\Desktop\\SdBoundaryProtect.sys");
 
 		DriveControl.Start(L"SdBoundaryProtect");
 
-		CommWithDevice.SendMsg(
-			L"\\\\.\\SdBoundaryProtect",
+		Comm.Init();
+
+		Comm.SendMsg(
 			IOCTL_UM_START,
 			&CommInfo,
-			sizeof(CommInfo)
+			sizeof(CommInfo),
+			NULL,
+			0
 			);
 
 		CopyMemory(CommInfo.Dir.wchFileName, L"c:\\1", wcslen(L"c:\\1") * sizeof(WCHAR));
 		CommInfo.Dir.DirControlType = DIR_CONTROL_TYPE_ACCESS;
 
-		CommWithDevice.SendMsg(
-			L"\\\\.\\SdBoundaryProtect",
+		Comm.SendMsg(
 			IOCTL_UM_DIR_ADD,
 			&CommInfo,
-			sizeof(CommInfo)
+			sizeof(CommInfo),
+			NULL,
+			0
 			);
 
 		CommInfo.Proc.ulPid = 2;
 
-		CommWithDevice.SendMsg(
-			L"\\\\.\\SdBoundaryProtect",
+		Comm.SendMsg(
 			IOCTL_UM_PROC_ADD,
 			&CommInfo,
-			sizeof(CommInfo)
+			sizeof(CommInfo),
+			NULL,
+			0
 			);
 	}
 	__finally

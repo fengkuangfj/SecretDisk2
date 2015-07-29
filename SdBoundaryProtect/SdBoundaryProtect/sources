@@ -15,5 +15,6 @@ SOURCES=Public.cpp \
 		DirHide.cpp \
 		DirControlList.cpp \
 		File.cpp \
+		Comm.cpp \
 		Minifilter.cpp \
 		SdBoundaryProtect.rc

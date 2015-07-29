@@ -35,9 +35,10 @@
 #include "stdafx.h"
 #include "ProcWhiteList.h"
 
-LIST_ENTRY	CProcWhiteList::ms_ListHead	= {0};
-ERESOURCE	CProcWhiteList::ms_Lock		= {0};
-KSPIN_LOCK	CProcWhiteList::ms_SpLock	= 0;
+FpZwQueryInformationProcess CProcWhiteList::ms_fpZwQueryInformationProcess	= NULL;
+LIST_ENTRY					CProcWhiteList::ms_ListHead						= {0};
+ERESOURCE					CProcWhiteList::ms_Lock							= {0};
+KSPIN_LOCK					CProcWhiteList::ms_SpLock						= 0;
 
 CProcWhiteList::CProcWhiteList()
 {
@@ -54,7 +55,9 @@ CProcWhiteList::~CProcWhiteList()
 BOOLEAN
 	CProcWhiteList::Init()
 {
-	BOOLEAN bRet = FALSE;
+	BOOLEAN		bRet	= FALSE;
+
+	CKrnlStr	FuncName;
 
 
 	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
@@ -64,6 +67,19 @@ BOOLEAN
 		InitializeListHead(&ms_ListHead);
 		ExInitializeResourceLite(&ms_Lock);
 		KeInitializeSpinLock(&ms_SpLock);
+
+		if (!FuncName.Set(L"ZwQueryInformationProcess", wcslen(L"ZwQueryInformationProcess")))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FuncName.Set failed");
+			__leave;
+		}
+
+		ms_fpZwQueryInformationProcess = (FpZwQueryInformationProcess)MmGetSystemRoutineAddress(FuncName.Get());
+		if (!ms_fpZwQueryInformationProcess)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"MmGetSystemRoutineAddress failed");
+			__leave;
+		}
 
 		if (!Insert(0))
 		{
@@ -347,8 +363,8 @@ LPPROC_WHITE_LIST
 
 		if (IsListEmpty(&ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. Pid(%d)",
-				ulPid);
+// 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. Pid(%d)",
+// 				ulPid);
 
 			__leave;
 		}
@@ -383,4 +399,116 @@ BOOLEAN
 		return TRUE;
 	else
 		return FALSE;
+}
+
+BOOLEAN
+	CProcWhiteList::GetProcPath(
+	__in ULONG			ulPid,
+	__in CKrnlStr	*	pProcPath,
+	__in BOOLEAN		bForce
+	)
+{
+	BOOLEAN		bRet													= FALSE;
+
+	NTSTATUS	ntStatus												= STATUS_UNSUCCESSFUL;
+	PEPROCESS	pEprocess												= NULL;
+	HANDLE		hProcess												= NULL;
+	ULONG		ulLen													= 0;
+	WCHAR		Buffer[MAX_PATH + 2 * sizeof(ULONG) / sizeof(WCHAR)]	= {0};
+
+
+	__try
+	{
+		if (!pProcPath)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			__leave;
+		}
+
+		if (!ulPid || 4 == ulPid)
+		{
+			bRet = TRUE;
+			__leave;
+		}
+
+		if (!bForce)
+			__leave;
+
+		// 获取进程对象
+		ntStatus = PsLookupProcessByProcessId((HANDLE)ulPid, &pEprocess);
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"PsLookupProcessByProcessId failed. (%x) Pid(%d)",
+				ntStatus, ulPid);
+
+			__leave;
+		}
+
+		// 获取进程句柄
+		ntStatus = ObOpenObjectByPointer(
+			pEprocess,
+			OBJ_KERNEL_HANDLE,
+			NULL,
+			STANDARD_RIGHTS_READ,
+			NULL,
+			KernelMode,
+			&hProcess
+			);
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ObOpenObjectByPointer failed. (%x) Pid(%d)",
+				ntStatus, ulPid);
+
+			__leave;
+		}
+
+		if (!pProcPath->Init())
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pProcPath->Init failed");
+
+			__leave;
+		}
+
+		// 获取进程信息
+		ntStatus = ms_fpZwQueryInformationProcess(
+			hProcess,
+			ProcessImageFileName,
+			Buffer,
+			MAX_PATH * sizeof(WCHAR) + 2 * sizeof(ULONG),
+			&ulLen
+			);
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ms_fpZwQueryInformationProcess failed. (%x) Pid(%d)",
+				ntStatus, ulPid);
+
+			__leave;
+		}
+
+		if (!pProcPath->Set((PUNICODE_STRING)Buffer))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pProcPath.Set failed. Path(%wZ)",
+				Buffer);
+
+			__leave;
+		}
+
+		bRet = TRUE;
+	}
+	__finally
+	{
+		if (hProcess)
+		{
+			ZwClose(hProcess);
+			hProcess = NULL;
+		}
+
+		if (pEprocess)
+		{
+			ObDereferenceObject(pEprocess);
+			pEprocess = NULL;
+		}
+	}
+
+	return bRet;
 }

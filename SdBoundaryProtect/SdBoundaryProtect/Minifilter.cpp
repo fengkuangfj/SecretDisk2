@@ -67,12 +67,6 @@ BOOLEAN
 		m_Callbacks[ulIndex].PostOperation	= PostDirectoryControl;
 
 		ulIndex++;
-		m_Callbacks[ulIndex].MajorFunction	= IRP_MJ_DEVICE_CONTROL;
-		m_Callbacks[ulIndex].Flags			= 0;
-		m_Callbacks[ulIndex].PreOperation	= PreDeviceControl;
-		m_Callbacks[ulIndex].PostOperation	= NULL;
-
-		ulIndex++;
 		if (CALLBACKS_NUM - 1 != ulIndex)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ulIndex error. ulIndex(%d)",
@@ -166,6 +160,7 @@ BOOLEAN
 	CFileName		FileName;
 	CProcWhiteList	ProcWhiteList;
 	CDirControlList	DirControlList;
+	CComm			Comm;
 
 
 	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
@@ -194,12 +189,6 @@ BOOLEAN
 
 		DirControlList.Init();
 
-		if (!CreateSymbolicLinkName(pDriverObject))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CreateSymbolicLinkName failed");
-			__leave;
-		}
-
 		// Register with FltMgr to tell it our callback routines
 		ntStatus = FltRegisterFilter(
 			pDriverObject,
@@ -224,6 +213,12 @@ BOOLEAN
 			__leave;
 		}
 
+		if (!Comm.Init(m_pFltFilter))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CommKm.Init failed");
+			__leave;
+		}
+
 		m_AllModuleInit = TRUE;
 
 		bRet = TRUE;
@@ -234,6 +229,7 @@ BOOLEAN
 
 		if (!bRet)
 		{
+			Comm.Unload();
 			Log.Unload();
 
 			if (m_SymbolicLinkName.GetLenCh())
@@ -324,6 +320,7 @@ NTSTATUS
 	CFileName		FileName;
 	CProcWhiteList	ProcWhiteList;
 	CDirControlList	DirControlList;
+	CComm			Comm;
 
 
 	UNREFERENCED_PARAMETER(Flags);
@@ -343,6 +340,7 @@ NTSTATUS
 
 		CMinifilter::ms_pMfIns->m_bAllowFltWork = FALSE;
 
+		Comm.Unload();
 		Log.Unload();
 
 		if (CMinifilter::ms_pMfIns->m_SymbolicLinkName.GetLenCh())
@@ -1139,180 +1137,6 @@ BOOLEAN
 	return bRet;
 }
 
-FLT_PREOP_CALLBACK_STATUS
-	CMinifilter::PreDeviceControl(
-	__inout			PFLT_CALLBACK_DATA			Data,
-	__in			PCFLT_RELATED_OBJECTS		FltObjects,
-	__deref_out_opt PVOID					*	CompletionContext
-	)
-{
-	FLT_PREOP_CALLBACK_STATUS	CallbackStatus	= FLT_PREOP_SUCCESS_NO_CALLBACK;
-
-	REGISTER_DIR_INFO			RegisterDirInfo;
-
-	CKrnlStr					DirAppName;
-	CKrnlStr					DirDevName;
-
-	CProcWhiteList				ProcWhiteList;
-	CDirControlList				DirControlList;
-
-
-	UNREFERENCED_PARAMETER(FltObjects);
-	UNREFERENCED_PARAMETER(CompletionContext);
-
-
-	__try
-	{
-		RtlZeroMemory(&RegisterDirInfo, sizeof(RegisterDirInfo));
-
-		if (FLT_IS_FASTIO_OPERATION(Data))
-		{
-			CallbackStatus = FLT_PREOP_DISALLOW_FASTIO;
-			__leave;
-		}
-
-		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_ALL_MODULE_INIT))
-			__leave;
-
-		if (ProcWhiteList.IsIn((ULONG)PsGetCurrentProcessId()))
-			__leave;
-
-		switch (Data->Iopb->Parameters.DeviceIoControl.Direct.IoControlCode)
-		{
-		case IOCTL_UM_START:
-			{
-				CMinifilter::ms_pMfIns->AllowFltWork();
-				break;
-			}
-		case IOCTL_UM_STOP:
-			{
-				CMinifilter::ms_pMfIns->DisallowFltWork();
-				break;
-			}
-		case IOCTL_UM_DIR_ADD:
-			{
-				RegisterDirInfo.Type = ((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.DirControlType;
-
-				if (!DirAppName.Set(
-					((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName,
-					wcslen(((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName)))
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_ADD] DirAppName.Set failed. Dir(%lS)",
-						((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName);
-
-					__leave;
-				}
-
-				if (!CFileName::ToDev(&DirAppName, &RegisterDirInfo.FileName, Data->Iopb->TargetInstance))
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_ADD] CFileName::ToDev failed. Dir(%wZ)",
-						DirAppName.Get());
-
-					__leave;
-				}
-
-				if (!DirControlList.Insert(&RegisterDirInfo))
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_ADD] DirControlList.Insert failed. Dir(%wZ)",
-						RegisterDirInfo.FileName.Get());
-
-					__leave;
-				}
-
-				break;
-			}
-		case IOCTL_UM_DIR_DELETE:
-			{
-				if (!DirAppName.Set(
-					((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName,
-					wcslen(((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName)))
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_DELETE] DirAppName.Set failed. Dir(%lS)",
-						((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Dir.wchFileName);
-
-					__leave;
-				}
-
-				if (!CFileName::ToDev(&DirAppName, &DirDevName, Data->Iopb->TargetInstance))
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_DELETE] CFileName::ToDev failed. Dir(%wZ)",
-						DirAppName.Get());
-
-					__leave;
-				}
-
-				if (!DirControlList.Delete(&DirDevName))
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_DELETE] DirControlList.Delete failed. Dir(%wZ)",
-						DirDevName.Get());
-
-					__leave;
-				}
-
-				break;
-			}
-		case IOCTL_UM_DIR_CLEAR:
-			{
-				if (!DirControlList.Clear())
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_CLEAR] DirControlList.Clear failed");
-					__leave;
-				}
-
-				break;
-			}
-		case IOCTL_UM_PROC_ADD:
-			{
-				if (!ProcWhiteList.Insert(((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Proc.ulPid))
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_ADD] ProcWhiteList.Insert failed. Pid(%d)",
-						((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Proc.ulPid);
-
-					__leave;
-				}
-
-				break;
-			}
-		case IOCTL_UM_PROC_DELETE:
-			{
-				if (!ProcWhiteList.Delete(((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Proc.ulPid))
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_DELETE] ProcWhiteList.Delete failed. Pid(%d)",
-						((LPCOMM_INFO)(Data->Iopb->Parameters.DeviceIoControl.Direct.InputSystemBuffer))->Proc.ulPid);
-
-					__leave;
-				}
-
-				break;
-			}
-		case IOCTL_UM_PROC_CLEAR:
-			{
-				if (!ProcWhiteList.Clear())
-				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_CLEAR] ProcWhiteList.Clear failed");
-
-					__leave;
-				}
-
-				break;
-			}
-		default:
-			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoControlCode error. IoControlCode(%x)",
-					Data->Iopb->Parameters.DeviceIoControl.Direct.IoControlCode);
-
-				__leave;
-			}
-		}
-	}
-	__finally
-	{
-		;
-	}
-
-	return CallbackStatus;
-}
-
 VOID
 	CMinifilter::DisallowFltWork()
 {
@@ -1335,100 +1159,4 @@ VOID
 	FreeLock();
 
 	return;
-}
-
-BOOLEAN
-	CMinifilter::CreateSymbolicLinkName(
-	__in PDRIVER_OBJECT pDriverObj
-	)
-{
-	BOOLEAN			bRet		= FALSE;
-
-	NTSTATUS		ntStatus	= STATUS_UNSUCCESSFUL;
-
-	GUID			Guid		= {0x26e0d1e0L, 0x8189, 0x12e0, {0x99, 0x14, 0x08, 0x00, 0x22, 0x30, 0x19, 0x03}};
-
-	CKrnlStr		DeviceName;
-	CKrnlStr		DefaultSDDLString;
-
-
-	__try
-	{
-		if (!pDriverObj)
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
-			__leave;
-		}
-
-		if (!DeviceName.Set(L"\\Device\\SdBoundaryProtect", wcslen(L"\\Device\\SdBoundaryProtect")))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DeviceName.Set failed");
-			__leave;
-		}
-
-		if (!DefaultSDDLString.Set(L"D:P(A;;GA;;;WD)", wcslen(L"D:P(A;;GA;;;WD)")))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DefaultSDDLString.Set failed");
-			__leave;
-		}
-
-		ntStatus = IoCreateDeviceSecure(
-			pDriverObj,
-			0,
-			DeviceName.Get(),
-			FILE_DEVICE_FILE_SYSTEM,
-			FILE_DEVICE_SECURE_OPEN,
-			FALSE,
-			DefaultSDDLString.Get(),
-			&Guid,
-			&m_pDevObj
-			);
-		if (!NT_SUCCESS(ntStatus))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoCreateDevice failed. (%x)",
-				ntStatus);
-
-			__leave;
-		}
-
-		m_pDevObj->Flags &= ~DO_DEVICE_INITIALIZING;
-
-		if (!m_SymbolicLinkName.Set(L"\\DosDevices\\Global\\SdBoundaryProtect", wcslen(L"\\DosDevices\\Global\\SdBoundaryProtect")))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"SymbolicLinkName.Set failed");
-			__leave;
-		}
-
-		ntStatus = IoCreateSymbolicLink(m_SymbolicLinkName.Get(), DeviceName.Get());
-		if (!NT_SUCCESS(ntStatus))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoCreateSymbolicLink failed. (%x)",
-				ntStatus);
-
-			__leave;
-		}
-
-		bRet = TRUE;
-	}
-	__finally
-	{
-		if (!bRet)
-		{
-			if (m_SymbolicLinkName.GetLenCh())
-			{
-				ntStatus = IoDeleteSymbolicLink(m_SymbolicLinkName.Get());
-				if (!NT_SUCCESS(ntStatus))
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoDeleteSymbolicLink failed. (%x)",
-					ntStatus);
-			}
-
-			if (m_pDevObj)
-			{
-				IoDeleteDevice(m_pDevObj);
-				m_pDevObj = NULL;
-			}
-		}
-	}
-
-	return bRet;
 }

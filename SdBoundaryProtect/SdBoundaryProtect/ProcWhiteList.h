@@ -44,6 +44,16 @@ typedef struct _PROC_WHITE_LIST
 	LIST_ENTRY  List; 
 } PROC_WHITE_LIST, *PPROC_WHITE_LIST, *LPPROC_WHITE_LIST;
 
+typedef
+	NTSTATUS
+	(* FpZwQueryInformationProcess)(
+	__in										HANDLE				ProcessHandle,
+	__in										PROCESSINFOCLASS	ProcessInformationClass,
+	__out_bcount_opt(ProcessInformationLength)	PVOID				ProcessInformation,
+	__in										ULONG				ProcessInformationLength,
+	__out_opt									PULONG				ReturnLength
+	);
+
 class CProcWhiteList
 {
 public:
@@ -297,13 +307,21 @@ public:
 		__in ULONG ulPid
 		);
 
-private:
-	static LIST_ENTRY		ms_ListHead;
-	static ERESOURCE		ms_Lock;
-	static KSPIN_LOCK		ms_SpLock;
+	BOOLEAN
+		GetProcPath(
+		__in ULONG			ulPid,
+		__in CKrnlStr	*	pProcPath,
+		__in BOOLEAN		bForce
+		);
 
-	KIRQL					m_Irql;
-	LONG					m_LockRef;
+private:
+	static FpZwQueryInformationProcess	ms_fpZwQueryInformationProcess;
+	static LIST_ENTRY					ms_ListHead;
+	static ERESOURCE					ms_Lock;
+	static KSPIN_LOCK					ms_SpLock;
+
+	KIRQL								m_Irql;
+	LONG								m_LockRef;
 
 	/*++
 	*

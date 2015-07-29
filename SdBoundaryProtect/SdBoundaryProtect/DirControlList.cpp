@@ -532,7 +532,7 @@ LPDIR_CONTROL_LIST
 
 		if (IsListEmpty(&ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Need not del. Rule(%wZ)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"List empty. Need not del. Rule(%wZ)",
 				pRuleEx->Get());
 
 			__leave;
