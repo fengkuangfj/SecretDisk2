@@ -2232,7 +2232,7 @@ BOOLEAN
 		}
 
 		// Éè±¸Ãû
-		lpVolNameInfo = FileName.GetVolNameInfo(pName, TYPE_DEV | TYPE_FULL_PATH);
+		lpVolNameInfo = FileName.GetVolNameInfo(pName, (NAME_TYPE)(TYPE_DEV | TYPE_FULL_PATH));
 		if (!lpVolNameInfo)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName.GetVolNameInfo failed. Name(%wZ)",

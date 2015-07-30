@@ -790,7 +790,7 @@ FLT_PREOP_CALLBACK_STATUS
 		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_ALL_MODULE_INIT | MINIFILTER_ENV_TYPE_ALLOW_WORK))
 			__leave;
 
-		if (ProcWhiteList.IsIn((ULONG)PsGetCurrentProcessId()))
+		if (ProcWhiteList.IsIn((ULONG)PsGetCurrentProcessId()) || 4 == (ULONG)PsGetCurrentProcessId())
 			__leave;
 
 		if (!CFileName::GetFileFullPath(Data, FltObjects->Volume, &FileName))
@@ -798,17 +798,6 @@ FLT_PREOP_CALLBACK_STATUS
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::GetFullFilePath failed. File(%wZ)",
 				&Data->Iopb->TargetFileObject->FileName);
 
-			__leave;
-		}
-
-		if (DirControlList.IsIn(&FileName, DIR_CONTROL_TYPE_ACCESS))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"File(%wZ)",
-				FileName.Get());
-
-			Data->IoStatus.Status = STATUS_ACCESS_DENIED;
-			Data->IoStatus.Information = 0;
-			CallbackStatus = FLT_PREOP_COMPLETE;
 			__leave;
 		}
 
@@ -861,7 +850,7 @@ FLT_PREOP_CALLBACK_STATUS
 				__leave;
 			}
 
-			if (!CFileName::ToDev(&DesFileNameSym, &DesFileName, Data->Iopb->TargetInstance))
+			if (!CFileName::ToDev(&DesFileNameSym, &DesFileName))
 			{
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::ToDev failed. (%wZ) -> (%wZ)",
 					FileName.Get(), DesFileNameSym.Get());
@@ -954,7 +943,7 @@ FLT_PREOP_CALLBACK_STATUS
 
 				if (!PureFileName.Set(Data->Iopb->Parameters.DirectoryControl.QueryDirectory.FileName))
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"PureFileName.Set faile. File(%wZ)",
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"PureFileName.Set failed. File(%wZ)",
 						Data->Iopb->Parameters.DirectoryControl.QueryDirectory.FileName);
 
 					__leave;
