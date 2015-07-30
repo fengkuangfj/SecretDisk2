@@ -650,6 +650,28 @@ BOOLEAN
 				__leave;
 			}
 
+			if (L'*' == *(FileName2.GetString() + FileName2.GetLenCh() - 1))
+			{
+				if (!FileName2.Shorten(FileName2.GetLenCh() - 1))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName2.Shorten failed. File(%wZ)",
+						FileName2.Get());
+
+					__leave;
+				}
+			}
+
+			if (L'\\' == *(FileName2.GetString() + FileName2.GetLenCh() - 1))
+			{
+				if (!FileName2.Shorten(FileName2.GetLenCh() - 1))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName2.Shorten failed. File(%wZ)",
+						FileName2.Get());
+
+					__leave;
+				}
+			}
+
 			if (FileName2.GetLenCh() < FileName1.GetLenCh())
 				continue;
 

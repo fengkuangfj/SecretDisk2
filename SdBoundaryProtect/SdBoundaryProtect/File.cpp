@@ -289,6 +289,12 @@ FILE_OBJECT_TYPE
 			__leave;
 		}
 
+		if (L'\\' == *(pFileName->GetString() + pFileName->GetLenCh() - 1))
+		{
+			ObjType = OBJECT_TYPE_DIR;
+			__leave;
+		}
+
 		switch (pData->Iopb->MajorFunction)
 		{
 		case IRP_MJ_CREATE:
