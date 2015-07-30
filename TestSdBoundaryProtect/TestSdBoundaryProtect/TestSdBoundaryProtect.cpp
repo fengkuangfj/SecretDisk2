@@ -77,31 +77,33 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		Comm.SendMsg(
 			IOCTL_UM_START,
-			&CommInfo,
-			sizeof(CommInfo),
 			NULL,
-			0
+			NULL,
+			0,
+			NULL
 			);
 
+		ZeroMemory(&CommInfo, sizeof(CommInfo));
 		CopyMemory(CommInfo.Dir.wchFileName, L"c:\\1", wcslen(L"c:\\1") * sizeof(WCHAR));
 		CommInfo.Dir.DirControlType = DIR_CONTROL_TYPE_ACCESS;
 
 		Comm.SendMsg(
 			IOCTL_UM_DIR_ADD,
 			&CommInfo,
-			sizeof(CommInfo),
 			NULL,
-			0
+			0,
+			NULL
 			);
 
+		ZeroMemory(&CommInfo, sizeof(CommInfo));
 		CommInfo.Proc.ulPid = 2;
 
 		Comm.SendMsg(
 			IOCTL_UM_PROC_ADD,
 			&CommInfo,
-			sizeof(CommInfo),
 			NULL,
-			0
+			0,
+			NULL
 			);
 	}
 	__finally

@@ -38,72 +38,170 @@ VOID
 */
 BOOL
 	CComm::SendMsg(
-	__in		ULONG	ulType,
-	__in		LPVOID	lpInBuffer,
-	__in		ULONG	ulInBufferSizeB,
-	__in_opt	LPVOID	lpOutBuffer,
-	__in_opt	ULONG	ulOutBufferSizeB
+	__in		ULONG		ulType,
+	__in_opt	LPCOMM_INFO	lpInCommInfo,
+	__out_opt	LPCOMM_INFO	lpOutCommInfo,
+	__in_opt	ULONG		ulOutCommInfoCount,
+	__out_opt	PULONG		pulRetCount
 	)
 {
-	BOOL			bRet			= FALSE;
+	BOOL			bRet				= FALSE;
 
-	HRESULT			hResult			= S_FALSE;
- 	REQUEST_PACKET	RequstPacket	= {0};
-	REPLY_PACKET	ReplyPacket		= {0};
- 	DWORD			dwRet			= 0;
+	HRESULT			hResult				= S_FALSE;
+	REQUEST_PACKET	RequstPacket		= {0};
+	LPREPLY_PACKET	lpReplyPacket		= NULL;
+	DWORD			dwRet				= 0;
+	ULONG			ulRequestPacketSize = 0;
+	ULONG			ulReplyPacketSize	= 0;
+	ULONG			i					= 0;
  	
 
 	__try
 	{
-		if (!ulType || !lpInBuffer || !ulInBufferSizeB || (lpOutBuffer && !ulOutBufferSizeB))
+		if (!ulType)
 		{
-			printf("input arguments error. \n");
+			printf("input argument error. \n");
 			__leave;
 		}
 
+		ulRequestPacketSize = sizeof(REQUEST_PACKET);
 		RequstPacket.ulVersion = REQUEST_PACKET_VERSION;
 		RequstPacket.ulType = ulType;
 
-		if (REQUEST_CONTENT_LENGTH < ulInBufferSizeB)
+		switch (RequstPacket.ulType)
 		{
-			printf("ulInBufferSizeB too large. \n");
-			__leave;
+		case IOCTL_UM_START:
+		case IOCTL_UM_STOP:
+		case IOCTL_UM_DIR_CLEAR:
+		case IOCTL_UM_PROC_CLEAR:
+			break;
+		case IOCTL_UM_DIR_ADD:
+		case IOCTL_UM_DIR_DELETE:
+		case IOCTL_UM_PROC_ADD:
+		case IOCTL_UM_PROC_DELETE:
+			{
+				if (!lpInCommInfo)
+				{
+					printf("lpInCommInfo error. \n");
+					__leave;
+				}
+
+				CopyMemory(&RequstPacket.CommInfo, lpInCommInfo, sizeof(COMM_INFO));
+
+				break;
+			}
+		case IOCTL_UM_DIR_GET:
+		case IOCTL_UM_PROC_GET:
+			{
+				if (!pulRetCount)
+				{
+					printf("pulRetCount error. \n");
+					__leave;
+				}
+
+				if (ulOutCommInfoCount)
+				{
+					ulReplyPacketSize = sizeof(REPLY_PACKET) + sizeof(COMM_INFO) * (ulOutCommInfoCount - 1);
+
+					lpReplyPacket = (LPREPLY_PACKET)calloc(1, ulReplyPacketSize);
+					if (!lpReplyPacket)
+					{
+						printf("calloc failed. (%d) \n", GetLastError());
+						__leave;
+					}
+
+					lpReplyPacket->ulVersion = REPLY_PACKET_VERSION;
+					lpReplyPacket->ulCount = ulOutCommInfoCount;
+				}
+	
+				break;
+			}
+		default:
+			{
+				printf("RequstPacket.ulType error. (0x%08x) \n", RequstPacket.ulType);
+				__leave;
+			}
 		}
-
-		CopyMemory(RequstPacket.chContent, (LPSTR)lpInBuffer, ulInBufferSizeB);
-
-		ReplyPacket.ulVersion = REPLY_PACKET_VERSION;
 	
 		hResult = FilterSendMessage(
 			ms_CommContext.hServerPort, 
 			&RequstPacket,
-			REQUEST_PACKET_SIZE,
-			&ReplyPacket,
-			REPLY_PACKET_SIZE,
+			ulRequestPacketSize,
+			lpReplyPacket,
+			ulReplyPacketSize,
 			&dwRet
 			);
 		if (S_OK != hResult)
 		{
+			switch (RequstPacket.ulType)
+			{
+			case IOCTL_UM_START:
+			case IOCTL_UM_STOP:
+			case IOCTL_UM_DIR_ADD:
+			case IOCTL_UM_DIR_DELETE:
+			case IOCTL_UM_DIR_CLEAR:
+			case IOCTL_UM_PROC_ADD:
+			case IOCTL_UM_PROC_DELETE:
+			case IOCTL_UM_PROC_CLEAR:
+				break;
+			case IOCTL_UM_DIR_GET:
+			case IOCTL_UM_PROC_GET:
+				{
+					if (!pulRetCount)
+					{
+						printf("pulRetCount error. \n");
+						__leave;
+					}
+
+					*pulRetCount = dwRet;
+					__leave;
+				}			
+			default:
+				{
+					printf("RequstPacket.ulType error. (0x%08x) \n", RequstPacket.ulType);
+					__leave;
+				}
+			}
+
 			printf("FilterSendMessage failed. (0x%08x) \n", hResult);
 			__leave;
 		}
 
-		if (lpOutBuffer)
+		switch (RequstPacket.ulType)
 		{
-			if (ulOutBufferSizeB < ReplyPacket.ulValidContentSizeB)
+		case IOCTL_UM_START:
+		case IOCTL_UM_STOP:
+		case IOCTL_UM_DIR_ADD:
+		case IOCTL_UM_DIR_DELETE:
+		case IOCTL_UM_DIR_CLEAR:
+		case IOCTL_UM_PROC_ADD:
+		case IOCTL_UM_PROC_DELETE:
+		case IOCTL_UM_PROC_CLEAR:
+			break;
+		case IOCTL_UM_DIR_GET:
+		case IOCTL_UM_PROC_GET:
 			{
-				printf("ulValidContentSizeB too large. \n");
+				for (; i < ulOutCommInfoCount; i++)
+					CopyMemory(lpOutCommInfo + i, lpReplyPacket->CommInfo + i, sizeof(COMM_INFO));
+
+				break;
+			}			
+		default:
+			{
+				printf("RequstPacket.ulType error. (0x%08x) \n", RequstPacket.ulType);
 				__leave;
 			}
-
-			CopyMemory(lpOutBuffer, ReplyPacket.chContent, ReplyPacket.ulValidContentSizeB);
 		}
 
 		bRet = TRUE;
 	}
 	__finally
 	{
-		;
+		if (lpReplyPacket)
+		{
+			free(lpReplyPacket);
+			lpReplyPacket = NULL;
+		}
 	}
 
 	return bRet;
@@ -156,7 +254,7 @@ BOOL
 			);
 		if (!ms_CommContext.hCompletionPort)
 		{
-			printf("CreateIoCompletionPort failed. (%d) \n", GetLastError);
+			printf("CreateIoCompletionPort failed. (%d) \n", GetLastError());
 			__leave;
 		}
 		
