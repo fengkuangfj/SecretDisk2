@@ -68,7 +68,7 @@ public:
 
 	~CFileName();
 
-	BOOLEAN
+	VOID
 		Init();
 
 	BOOLEAN

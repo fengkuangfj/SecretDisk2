@@ -175,11 +175,7 @@ BOOLEAN
 			__leave;
 		}
 
-		if (!FileName.Init())
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName.Init failed");
-			__leave;
-		}
+		FileName.Init();
 
 		if (!ProcWhiteList.Init())
 		{
