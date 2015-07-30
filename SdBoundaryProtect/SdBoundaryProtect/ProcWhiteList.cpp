@@ -95,8 +95,6 @@ BOOLEAN
 		{
 			ExDeleteResourceLite(&ms_Lock);
 			RtlZeroMemory(&ms_Lock, sizeof(ms_Lock));
-
-			ms_fpZwQueryInformationProcess = NULL;
 		}
 	}
 
@@ -144,8 +142,6 @@ BOOLEAN
 
 		ExDeleteResourceLite(&ms_Lock);
 		RtlZeroMemory(&ms_Lock, sizeof(ms_Lock));
-
-		ms_fpZwQueryInformationProcess = NULL;
 	}
 
 	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"end");

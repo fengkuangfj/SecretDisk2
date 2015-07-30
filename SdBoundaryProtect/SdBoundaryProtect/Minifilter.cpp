@@ -698,10 +698,7 @@ VOID
 
 			Log.GetLock();
 			if (Log.ms_pFltInstance && Log.ms_pFltInstance == FltObjects->Instance)
-			{
 				Log.ms_pFltInstance = NULL;
-				Log.ms_ulSectorSize = 0;
-			}
 			Log.FreeLock();
 		}
 	}

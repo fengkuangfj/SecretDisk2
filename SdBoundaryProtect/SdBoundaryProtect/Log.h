@@ -36,7 +36,7 @@
 
 #define MOD_LOG						L"»’÷æ"
 #define MEMORY_TAG_LOG				'GOL'				// LOG
-#define	EVERY_TIME_LOG_MAX_COUNT	1
+#define	MAX_EVERY_TIME_LOG_COUNT	1
 #define MAX_LOG_FILE_SIZE			(9 * 1024 * 1024)
 
 typedef struct _LOG_INFO
@@ -50,7 +50,6 @@ class CLog
 {
 public:
 	static PFLT_INSTANCE	ms_pFltInstance;
-	static ULONG			ms_ulSectorSize;
 
 	CLog();
 
@@ -169,6 +168,7 @@ private:
 	static LARGE_INTEGER	ms_liByteOffset;
 	static PETHREAD			ms_pEThread;
 	static BOOLEAN			ms_bCanInsertLog;
+	static ULONG			ms_ulSectorSize;
 
 	static KSTART_ROUTINE	ThreadStart;
 

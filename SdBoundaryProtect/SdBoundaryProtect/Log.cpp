@@ -44,10 +44,10 @@ CKrnlStr*		CLog::ms_pLogDir		= NULL;
 HANDLE			CLog::ms_hLogFile		= NULL;
 PFILE_OBJECT	CLog::ms_pLogFileObj	= NULL;
 LARGE_INTEGER	CLog::ms_liByteOffset	= {0};
-PFLT_INSTANCE	CLog::ms_pFltInstance	= NULL;
-ULONG			CLog::ms_ulSectorSize	= 0;
 PETHREAD		CLog::ms_pEThread		= NULL;
 BOOLEAN			CLog::ms_bCanInsertLog	= FALSE;
+ULONG			CLog::ms_ulSectorSize	= 0;
+PFLT_INSTANCE	CLog::ms_pFltInstance	= NULL;
 
 CLog::CLog()
 {
@@ -107,7 +107,7 @@ VOID
 						{
 							if (!Log.Pop(&LogInfo))
 							{
-								KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"[STATUS_SUCCESS] Log.Pop failed");
+								// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"[STATUS_SUCCESS] Log.Pop failed");
 								break;
 							}
 
@@ -155,7 +155,7 @@ VOID
 							Log.GetLock();
 
 							ulCount++;
-						} while (ulCount < EVERY_TIME_LOG_MAX_COUNT);
+						} while (MAX_EVERY_TIME_LOG_COUNT > ulCount);
 					}
 					else
 					{
@@ -264,14 +264,14 @@ BOOLEAN
 
 		if (!bRet)
 		{
-			ExDeleteResourceLite(&ms_Lock);
-			RtlZeroMemory(&ms_Lock, sizeof(ms_Lock));
-
 			delete ms_pLogFile;
 			ms_pLogFile = NULL;
 
 			delete ms_pLogDir;
 			ms_pLogDir = NULL;
+
+			ExDeleteResourceLite(&ms_Lock);
+			RtlZeroMemory(&ms_Lock, sizeof(ms_Lock));
 		}
 	}
 
@@ -679,27 +679,21 @@ BOOLEAN
 	{
 		GetLock();
 
-		if (!ms_ulSectorSize)
-		{
-			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_ulSectorSize");
-			__leave;
-		}
-
 		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_FLT_FILTER))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == CDriver::ms_DrvIns->m_MfIns->m_Flt");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"CMinifilter::ms_pMfIns->CheckEnv failed");
 			__leave;
 		}
 
 		if (!ms_pFltInstance)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_pFltInstance");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pFltInstance error");
 			__leave;
 		}
 
 		if (!ms_pLogFile || !ms_pLogFile->GetLenCh())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile not ready");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile error");
 			__leave;
 		}
 
@@ -732,7 +726,7 @@ BOOLEAN
 		if (!NT_SUCCESS(ntStatus))
 		{
 			if (STATUS_DELETE_PENDING == ntStatus)
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FltCreateFile failed. (%x) File(%wZ)",
+				KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"FltCreateFile failed. (%x) File(%wZ)",
 				ntStatus, ms_pLogFile->Get());
 			else
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FltCreateFile failed. (%x) File(%wZ)",
@@ -777,44 +771,31 @@ BOOLEAN
 
 		if (bReset)
 		{
-			if (ms_pLogFileObj)
+			FreeLock();
+			if (!ReleaseLogFile())
 			{
-				ObDereferenceObject(ms_pLogFileObj);
-				ms_pLogFileObj = NULL;
-			}
-
-			if (ms_hLogFile)
-			{
-				FreeLock();
-				FltClose(ms_hLogFile);
 				GetLock();
-				ms_hLogFile = NULL;
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"RleaseLogFile failed");
+				__leave;
 			}
-
-			ms_liByteOffset.QuadPart = 0;
-		}
-
-		if (!InitLogFileName())
-		{
-			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"InitLogFileName failed");
-			__leave;
+			GetLock();
 		}
 
 		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_FLT_FILTER))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == CDriver::ms_DrvIns->m_MfIns->m_Flt");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"CMinifilter::ms_pMfIns->CheckEnv failed");
 			__leave;
 		}
 
 		if (!ms_pFltInstance)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_pFltInstance");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pFltInstance error");
 			__leave;
 		}
 
-		if (!ms_pLogFile || !ms_pLogFile->GetLenCh())
+		if (!InitLogFileName())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile not ready");
+			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"InitLogFileName failed");
 			__leave;
 		}
 
@@ -846,7 +827,7 @@ BOOLEAN
 		GetLock();
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FltCreateFile failed (%x) File(%wZ)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FltCreateFile failed. (%x) File(%wZ)",
 				ntStatus, ms_pLogFile->Get());
 
 			__leave;
@@ -862,7 +843,7 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ObReferenceObjectByHandle failed (%x) File(%wZ)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ObReferenceObjectByHandle failed. (%x) File(%wZ)",
 				ntStatus, ms_pLogFile->Get());
 
 			__leave;
@@ -920,8 +901,7 @@ BOOLEAN
 
 		if (!ms_pLogFile)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"NULL == ms_pLogFile");
-
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile error");
 			__leave;
 		}
 
@@ -1020,7 +1000,7 @@ BOOLEAN
 
 		if (!pLog || !usLenCh)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"input argument error. pLog(%p) usLenCh(%d)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"input arguments error. pLog(%p) usLenCh(%d)",
 				pLog, usLenCh);
 
 			__leave;
@@ -1077,6 +1057,8 @@ BOOLEAN
 			GetLock();
 			ms_hLogFile = NULL;
 		}
+
+		ms_liByteOffset.QuadPart = 0;
 
 		bRet = TRUE;
 	}
