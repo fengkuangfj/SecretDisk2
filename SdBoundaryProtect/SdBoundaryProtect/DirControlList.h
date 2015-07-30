@@ -40,19 +40,19 @@
 
 typedef struct _DIR_CONTROL_LIST
 {
+	DIR_CONTROL_TYPE	Type;				// 保护类型
+
 	CKrnlStr			RuleEx;				// 规则路径表达式
 	CKrnlStr			ParentDirRuleEx;	// 规则路径父目录规则表达式
 
-	DIR_CONTROL_TYPE	Type;				// 保护类型
-
-	LIST_ENTRY	List;
+	LIST_ENTRY			List;
 } DIR_CONTROL_LIST, *PDIR_CONTROL_LIST, *LPDIR_CONTROL_LIST;
 
 typedef struct _REGISTER_DIR_INFO
 {
-	CKrnlStr			FileName;
-
 	DIR_CONTROL_TYPE	Type;			// 保护类型
+
+	CKrnlStr			FileName;
 } REGISTER_DIR_INFO, *PREGISTER_DIR_INFO, *LPREGISTER_DIR_INFO;
 
 class CDirControlList
@@ -246,8 +246,8 @@ public:
 	--*/
 	BOOLEAN
 		Filter(
-		__in	CKrnlStr*			FileName,
-		__inout PFLT_CALLBACK_DATA	pData
+		__in	CKrnlStr			*	pFileName,
+		__inout PFLT_CALLBACK_DATA		pData
 		);
 
 	/*++
@@ -344,7 +344,7 @@ public:
 	--*/
 	BOOLEAN
 		Delete(
-		__in CKrnlStr* RuleEx
+		__in CKrnlStr* pRule
 		);
 
 private:
@@ -445,6 +445,6 @@ private:
 	--*/
 	LPDIR_CONTROL_LIST
 		Get(
-		__in CKrnlStr* RuleEx
+		__in CKrnlStr* pRule
 		);
 };
