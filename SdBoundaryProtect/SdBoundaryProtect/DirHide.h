@@ -43,9 +43,9 @@ public:
 	static
 		BOOLEAN 
 		BreakLink(
-		__inout PFLT_CALLBACK_DATA	pData,
-		__in	CKrnlStr*			RuleEx,
-		__in	CKrnlStr*			ParentPath
+		__inout PFLT_CALLBACK_DATA		pData,
+		__in	CKrnlStr			*	pRuleEx,
+		__in	CKrnlStr			*	pParentPath
 		);
 
 private:
