@@ -1,6 +1,6 @@
 #pragma once
 
-#define MOD_COMM		L"ͨѶ"
+#define MOD_COMM		L"通讯"
 #define MEMORY_TAG_COMM 'MMOC'	// COMM
 
 typedef struct _COMM_CONTEXT

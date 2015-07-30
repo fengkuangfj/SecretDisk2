@@ -55,7 +55,7 @@ BOOLEAN
 
 		if (CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_FLT_FILTER) && ms_CommInfo.pSeverPort)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"Already CCommKm::Init");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"already init");
 			__leave;
 		}
 
@@ -68,7 +68,9 @@ BOOLEAN
 		ntStatus = FltBuildDefaultSecurityDescriptor(&pSd, FLT_PORT_ALL_ACCESS);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltBuildDefaultSecurityDescriptor failed. (%x)", ntStatus);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltBuildDefaultSecurityDescriptor failed. (%x)",
+				ntStatus);
+
 			__leave;
 		}
 
@@ -92,7 +94,9 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateCommunicationPort failed. (%x)", ntStatus);				
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateCommunicationPort failed. (%x)",
+				ntStatus);
+
 			__leave;
 		}
 
@@ -140,7 +144,7 @@ VOID
 	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
 
 	if (!ms_CommInfo.pSeverPort)
-		KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"Not CCommKm::Init or Already CCommKm::Unload");
+		KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"need not unload");
 	else
 	{
 		FltCloseCommunicationPort(ms_CommInfo.pSeverPort);
@@ -207,9 +211,9 @@ NTSTATUS
 
 		ms_CommInfo.pClientPort = pClientPort;
 
-		if (!ProcWhiteList.GetProcPath(ulPid, &ProcPath, TRUE))
+		if (!ProcWhiteList.GetProcPath(ulPid, &ProcPath))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ProcWhiteList.GetProcessPath failed. Pid(%d)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ProcWhiteList.GetProcPath failed. Pid(%d)",
 				ulPid);
 
 			__leave;
@@ -278,13 +282,13 @@ VOID
 	{
 		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_FLT_FILTER))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"!ms_CommInfo.pFlt");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CMinifilter::ms_pMfIns->CheckEnv failed");
 			__leave;
 		}
 
 		if (!ms_CommInfo.pClientPort)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"!ms_CommInfo.ulClientId || !ms_CommInfo.pClientPort");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"already disconnect");
 			__leave;
 		}
 
@@ -331,7 +335,9 @@ NTSTATUS
 {
 	NTSTATUS			ntStatus			= STATUS_UNSUCCESSFUL;
 
-	PREQUEST_PACKET		pRequestPacket		= NULL;
+	LPREQUEST_PACKET	lpRequestPacket		= NULL;
+	LPREPLY_PACKET		lpReplyPacket		= NULL;
+	ULONG				i					= 0;
 
 	REGISTER_DIR_INFO	RegisterDirInfo;
 
@@ -346,23 +352,26 @@ NTSTATUS
 	{
 		RtlZeroMemory(&RegisterDirInfo, sizeof(RegisterDirInfo));
 
+		if (!lpInputBuffer || !ulInputBufferLength || !pulReturnOutputBufferLength)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. lpInputBuffer(%p) ulInputBufferLength(%d) pulReturnOutputBufferLength(%p)",
+				lpInputBuffer, ulInputBufferLength, pulReturnOutputBufferLength);
+
+			__leave;
+		}
+
 		if (!CMinifilter::ms_pMfIns->CheckEnv(MINIFILTER_ENV_TYPE_FLT_FILTER) || !ms_CommInfo.pSeverPort || !ms_CommInfo.pClientPort)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"comm argument error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"comm environment error. pSeverPort(%p) pClientPort(%p)",
+				ms_CommInfo.pSeverPort, ms_CommInfo.pClientPort);
+
 			__leave;
 		}
 
-		*pulReturnOutputBufferLength = ulOutputBufferLength;
+		lpRequestPacket = (PREQUEST_PACKET)lpInputBuffer;
+		lpReplyPacket = (LPREPLY_PACKET)lpOutputBuffer;
 
-		// ×ª»»½á¹¹
-		pRequestPacket = (PREQUEST_PACKET)lpInputBuffer;
-		if (!pRequestPacket)
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"lpInputBuffer error");
-			__leave;
-		}
-
-		switch (pRequestPacket->ulType)
+		switch (lpRequestPacket->ulType)
 		{
 		case IOCTL_UM_START:
 			{
@@ -376,14 +385,12 @@ NTSTATUS
 			}
 		case IOCTL_UM_DIR_ADD:
 			{
-				RegisterDirInfo.Type = ((LPCOMM_INFO)(pRequestPacket->chContent))->Dir.DirControlType;
+				RegisterDirInfo.Type = lpRequestPacket->CommInfo.Dir.DirControlType;
 
-				if (!DirAppName.Set(
-					((LPCOMM_INFO)(pRequestPacket->chContent))->Dir.wchFileName,
-					wcslen(((LPCOMM_INFO)(pRequestPacket->chContent))->Dir.wchFileName)))
+				if (!DirAppName.Set(lpRequestPacket->CommInfo.Dir.wchFileName, wcslen(lpRequestPacket->CommInfo.Dir.wchFileName)))
 				{
 					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_ADD] DirAppName.Set failed. Dir(%lS)",
-						((LPCOMM_INFO)(pRequestPacket->chContent))->Dir.wchFileName);
+						lpRequestPacket->CommInfo.Dir.wchFileName);
 
 					__leave;
 				}
@@ -408,12 +415,10 @@ NTSTATUS
 			}
 		case IOCTL_UM_DIR_DELETE:
 			{
-				if (!DirAppName.Set(
-					((LPCOMM_INFO)(pRequestPacket->chContent))->Dir.wchFileName,
-					wcslen(((LPCOMM_INFO)(pRequestPacket->chContent))->Dir.wchFileName)))
+				if (!DirAppName.Set(lpRequestPacket->CommInfo.Dir.wchFileName, wcslen(lpRequestPacket->CommInfo.Dir.wchFileName)))
 				{
 					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_DELETE] DirAppName.Set failed. Dir(%lS)",
-						((LPCOMM_INFO)(pRequestPacket->chContent))->Dir.wchFileName);
+						lpRequestPacket->CommInfo.Dir.wchFileName);
 
 					__leave;
 				}
@@ -448,10 +453,10 @@ NTSTATUS
 			}
 		case IOCTL_UM_PROC_ADD:
 			{
-				if (!ProcWhiteList.Insert(((LPCOMM_INFO)(pRequestPacket->chContent))->Proc.ulPid))
+				if (!ProcWhiteList.Insert(lpRequestPacket->CommInfo.Proc.ulPid))
 				{
 					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_ADD] ProcWhiteList.Insert failed. Pid(%d)",
-						((LPCOMM_INFO)(pRequestPacket->chContent))->Proc.ulPid);
+						lpRequestPacket->CommInfo.Proc.ulPid);
 
 					__leave;
 				}
@@ -460,10 +465,10 @@ NTSTATUS
 			}
 		case IOCTL_UM_PROC_DELETE:
 			{
-				if (!ProcWhiteList.Delete(((LPCOMM_INFO)(pRequestPacket->chContent))->Proc.ulPid))
+				if (!ProcWhiteList.Delete(lpRequestPacket->CommInfo.Proc.ulPid))
 				{
 					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_DELETE] ProcWhiteList.Delete failed. Pid(%d)",
-						((LPCOMM_INFO)(pRequestPacket->chContent))->Proc.ulPid);
+						lpRequestPacket->CommInfo.Proc.ulPid);
 
 					__leave;
 				}
@@ -475,7 +480,36 @@ NTSTATUS
 				if (!ProcWhiteList.Clear())
 				{
 					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_CLEAR] ProcWhiteList.Clear failed");
+					__leave;
+				}
 
+				break;
+			}
+		case IOCTL_UM_DIR_GET:
+			{
+				*pulReturnOutputBufferLength = DirControlList.GetCount();
+
+				if (!lpReplyPacket || (lpReplyPacket->ulCount < *pulReturnOutputBufferLength))
+					__leave;
+
+				if (!DirControlList.Fill(lpReplyPacket->CommInfo, *pulReturnOutputBufferLength))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_DIR_GET] DirControlList.Fill failed");
+					__leave;
+				}
+
+				break;
+			}
+		case IOCTL_UM_PROC_GET:
+			{
+				*pulReturnOutputBufferLength = ProcWhiteList.GetCount();
+
+				if (!lpReplyPacket || (lpReplyPacket->ulCount < *pulReturnOutputBufferLength))
+					__leave;
+
+				if (!ProcWhiteList.Fill(lpReplyPacket->CommInfo, *pulReturnOutputBufferLength))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IOCTL_UM_PROC_GET] ProcWhiteList.Fill failed");
 					__leave;
 				}
 
@@ -483,13 +517,12 @@ NTSTATUS
 			}
 		default:
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"IoControlCode error. IoControlCode(%x)",
-					pRequestPacket->ulType);
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pRequestPacket->ulType error. Type(%x)",
+					lpRequestPacket->ulType);
 
 				__leave;
 			}
 		}
-		
 
 		ntStatus = STATUS_SUCCESS;
 	}

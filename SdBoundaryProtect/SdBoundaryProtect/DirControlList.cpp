@@ -38,6 +38,7 @@
 LIST_ENTRY	CDirControlList::ms_ListHead	= {0};
 ERESOURCE	CDirControlList::ms_Lock		= {0};
 KSPIN_LOCK	CDirControlList::ms_SpLock		= 0;
+ULONG		CDirControlList::ms_ulCount		= 0;
 
 CDirControlList::CDirControlList()
 {
@@ -95,6 +96,8 @@ BOOLEAN
 			RemoveEntryList(&lpDirProtectInfo->List);
 			delete lpDirProtectInfo;
 			lpDirProtectInfo = NULL;
+
+			ms_ulCount--;
 		}
 
 		bRet = TRUE;
@@ -142,6 +145,8 @@ BOOLEAN
 			RemoveEntryList(&lpDirProtectInfo->List);
 			delete lpDirProtectInfo;
 			lpDirProtectInfo = NULL;
+
+			ms_ulCount--;
 		}
 
 		bRet = TRUE;
@@ -375,6 +380,8 @@ BOOLEAN
 
 		InsertTailList(&ms_ListHead, &lpDirProtectInfo->List);
 
+		ms_ulCount++;
+
 		KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"[NEW] Rule(%wZ) Type(0x%08x)",
 			lpDirProtectInfo->RuleEx.Get(), lpDirProtectInfo->Type);
 
@@ -473,6 +480,9 @@ BOOLEAN
 		RemoveEntryList(&lpDirProtectInfo->List);
 		delete lpDirProtectInfo;
 		lpDirProtectInfo = NULL;
+
+		ms_ulCount--;
+
 		bRet = TRUE;
 	}
 	__finally
@@ -779,6 +789,112 @@ BOOLEAN
 	{
 		FreeLock();
 	}
+
+	return bRet;
+}
+
+ULONG
+	CDirControlList::GetCount()
+{
+	ULONG ulCount = 0;
+
+
+	__try
+	{
+		GetLock();
+
+		ulCount = ms_ulCount;
+	}
+	__finally
+	{
+		FreeLock();
+	}
+
+	return ulCount;
+}
+
+BOOLEAN
+	CDirControlList::Fill(
+	__in LPCOMM_INFO	lpCommInfo,
+	__in ULONG			ulCount
+	)
+{
+	BOOLEAN				bRet				= FALSE;
+
+	LPDIR_CONTROL_LIST	lpDirControlList	= NULL;
+	PLIST_ENTRY			pNode				= NULL;
+
+	CKrnlStr			AppName;
+
+
+	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
+
+	__try
+	{
+		GetLock();
+
+		if (!lpCommInfo || !ulCount)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. lpCommInfo(%p) ulCount(%d)",
+				lpCommInfo, ulCount);
+
+			__leave;
+		}
+
+		if (ulCount < ms_ulCount)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ulCount error. ulCount(%d) ms_ulCount(%d)",
+				ulCount, ms_ulCount);
+
+			__leave;
+		}
+
+		if (IsListEmpty(&ms_ListHead))
+		{
+			bRet = TRUE;
+			__leave;
+		}
+
+		for (pNode = ms_ListHead.Flink; pNode != &ms_ListHead; pNode = pNode->Flink, lpDirControlList = NULL)
+		{
+			lpDirControlList = CONTAINING_RECORD(pNode, DIR_CONTROL_LIST, List);
+			if (!lpDirControlList)
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed");
+				__leave;
+			}
+
+			lpCommInfo->Dir.DirControlType = lpDirControlList->Type;
+
+			if (!CFileName::ToApp(&lpDirControlList->RuleEx, &AppName))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CFileName::ToApp failed. Rule(%wZ)",
+					lpDirControlList->RuleEx.Get());
+
+				__leave;
+			}
+
+			if (!AppName.Shorten(AppName.GetLenCh() - 2))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"AppName.Shorten failed. Rule(%wZ)",
+					AppName.Get());
+
+				__leave;
+			}
+
+			RtlCopyMemory(lpCommInfo->Dir.wchFileName, AppName.GetString(), AppName.GetLenB());
+
+			lpCommInfo++;
+		}
+
+		bRet = TRUE;
+	}
+	__finally
+	{
+		FreeLock();
+	}
+
+	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"end");
 
 	return bRet;
 }

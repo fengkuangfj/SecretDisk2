@@ -355,9 +355,8 @@ BOOLEAN
 */
 BOOLEAN 
 	CFileName::ToDev(
-	__in		CKrnlStr*		pName,
-	__inout		CKrnlStr*		pDevName,
-	__in_opt	PFLT_INSTANCE	pFltInstance
+	__in	CKrnlStr * pName,
+	__inout	CKrnlStr * pDevName
 	)
 {
 	BOOLEAN				bRet			= FALSE;
@@ -2160,4 +2159,122 @@ LPVOLUME_NAME_INFO
 	}
 
 	return lpVolNameInfo;
+}
+
+/*
+* 函数说明：
+*		将文件的设备名或符号链接名转成R3名
+*
+* 参数：
+*		Name		设备名或符号链接名
+*		AppName		R3名
+*
+* 返回值：
+*		TRUE	成功
+*		FALSE	失败
+*
+* 备注：
+*		无
+*/
+BOOLEAN 
+	CFileName::ToApp(
+	__in	CKrnlStr * pName,
+	__inout CKrnlStr * pAppName
+	)
+{
+	BOOLEAN				bRet			= FALSE;
+
+	CKrnlStr			VolAppName;
+	CKrnlStr			VolSymName;
+	CKrnlStr			VolDevName;
+	CKrnlStr			TmpName;
+
+	CFileName			FileName;
+
+	LPVOLUME_NAME_INFO	lpVolNameInfo	= NULL;
+	USHORT				usCutOffset		= 0;
+	BOOLEAN				bInsertNew		= FALSE;
+
+
+	__try
+	{
+		FileName.GetLock();
+
+		if (!pName || !pAppName)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			__leave;
+		}
+
+		if (!TmpName.Set(pName))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpName.Set failed. File(%wZ)", pName->Get());
+			__leave;
+		}
+
+		if (!TmpName.Shorten(4))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpName.Shorten failed. File(%wZ)", TmpName.Get());
+			__leave;
+		}
+
+		if (TmpName.Equal(L"\\??\\", wcslen(L"\\??\\"), FALSE))
+		{
+			// 符号连接名
+			if (!pAppName->Set(pName->GetString() + 4, pName->GetLenCh() - 4))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Set failed. File(%wZ)", pName->Get());
+				__leave;
+			}
+
+			bRet = TRUE;
+			__leave;
+		}
+
+		// 设备名
+		lpVolNameInfo = FileName.GetVolNameInfo(pName, TYPE_DEV | TYPE_FULL_PATH);
+		if (!lpVolNameInfo)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName.GetVolNameInfo failed. Name(%wZ)",
+				pName->Get());
+
+			__leave;
+		}
+		else
+			usCutOffset = lpVolNameInfo->DevName.GetLenB();
+
+		if (bInsertNew)
+		{
+			if (!pAppName->Set(&VolAppName))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Set failed. Vol(%wZ)", VolAppName.Get());
+				__leave;
+			}
+		}
+		else
+		{
+			if (!pAppName->Set(&lpVolNameInfo->AppName))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Set failed. Vol(%wZ)", lpVolNameInfo->AppName.Get());
+				__leave;
+			}
+		}
+
+		if (pName->GetLenB() > usCutOffset)
+		{
+			if (!pAppName->Append(pName->GetString() + usCutOffset / sizeof(WCHAR), pName->GetLenCh() - usCutOffset / sizeof(WCHAR)))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Append failed. File(%wZ)", pName->Get());
+				__leave;
+			}
+		}
+
+		bRet = TRUE;
+	}
+	__finally
+	{
+		FileName.FreeLock();
+	}
+
+	return bRet;
 }

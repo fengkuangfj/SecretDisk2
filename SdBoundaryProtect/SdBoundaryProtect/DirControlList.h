@@ -347,10 +347,20 @@ public:
 		__in CKrnlStr* pRule
 		);
 
+	ULONG
+		GetCount();
+
+	BOOLEAN
+		Fill(
+		__in LPCOMM_INFO	lpCommInfo,
+		__in ULONG			ulCount
+		);
+
 private:
 	static LIST_ENTRY	ms_ListHead;
 	static ERESOURCE	ms_Lock;
 	static KSPIN_LOCK	ms_SpLock;
+	static ULONG		ms_ulCount;
 
 	KIRQL				m_Irql;
 	LONG				m_LockRef;

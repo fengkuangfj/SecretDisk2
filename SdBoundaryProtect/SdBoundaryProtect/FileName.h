@@ -77,9 +77,15 @@ public:
 	static
 		BOOLEAN
 		ToDev(
-		__in		CKrnlStr*		pName,
-		__inout		CKrnlStr*		pDevName,
-		__in_opt	PFLT_INSTANCE	pFltInstance = NULL
+		__in	CKrnlStr * pName,
+		__inout	CKrnlStr * pDevName
+		);
+
+	static
+		BOOLEAN
+		ToApp(
+		__in	CKrnlStr * pName,
+		__inout CKrnlStr * pAppName
 		);
 
 	/*

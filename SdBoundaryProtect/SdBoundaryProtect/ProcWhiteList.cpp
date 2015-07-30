@@ -39,6 +39,7 @@ FpZwQueryInformationProcess CProcWhiteList::ms_fpZwQueryInformationProcess	= NUL
 LIST_ENTRY					CProcWhiteList::ms_ListHead						= {0};
 ERESOURCE					CProcWhiteList::ms_Lock							= {0};
 KSPIN_LOCK					CProcWhiteList::ms_SpLock						= 0;
+ULONG						CProcWhiteList::ms_ulCount						= 0;
 
 CProcWhiteList::CProcWhiteList()
 {
@@ -132,6 +133,8 @@ BOOLEAN
 			RemoveEntryList(&lpProcProtectInfo->List);
 			delete lpProcProtectInfo;
 			lpProcProtectInfo = NULL;
+
+			ms_ulCount--;
 		}
 
 		bRet = TRUE;
@@ -178,6 +181,8 @@ BOOLEAN
 			RemoveEntryList(&lpProcProtectInfo->List);
 			delete lpProcProtectInfo;
 			lpProcProtectInfo = NULL;
+
+			ms_ulCount--;
 		}
 
 		bRet = TRUE;
@@ -301,6 +306,8 @@ BOOLEAN
 		lpProcProtectInfo->ulPid = ulPid;
 		InsertTailList(&ms_ListHead, &lpProcProtectInfo->List);
 
+		ms_ulCount++;
+
 		KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"Pid(%d)",
 			ulPid);
 
@@ -340,6 +347,8 @@ BOOLEAN
 		RemoveEntryList(&lpProcProtectInfo->List);
 		delete lpProcProtectInfo;
 		lpProcProtectInfo = NULL;
+
+		ms_ulCount--;
 
 		KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"Pid(%d)",
 			ulPid);
@@ -512,6 +521,92 @@ BOOLEAN
 			pEprocess = NULL;
 		}
 	}
+
+	return bRet;
+}
+
+ULONG
+	CProcWhiteList::GetCount()
+{
+	ULONG ulCount = 0;
+
+
+	__try
+	{
+		GetLock();
+
+		ulCount = ms_ulCount;
+	}
+	__finally
+	{
+		FreeLock();
+	}
+
+	return ulCount;
+}
+
+BOOLEAN
+	CProcWhiteList::Fill(
+	__in LPCOMM_INFO	lpCommInfo,
+	__in ULONG			ulCount
+	)
+{
+	BOOLEAN				bRet				= FALSE;
+
+	LPPROC_WHITE_LIST	lpProcProtectInfo	= NULL;
+	PLIST_ENTRY			pNode				= NULL;
+
+
+	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
+
+	__try
+	{
+		GetLock();
+
+		if (!lpCommInfo || !ulCount)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. lpCommInfo(%p) ulCount(%d)",
+				lpCommInfo, ulCount);
+
+			__leave;
+		}
+
+		if (ulCount < ms_ulCount)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ulCount error. ulCount(%d) ms_ulCount(%d)",
+				ulCount, ms_ulCount);
+
+			__leave;
+		}
+
+		if (IsListEmpty(&ms_ListHead))
+		{
+			bRet = TRUE;
+			__leave;
+		}
+
+		for (pNode = ms_ListHead.Flink; pNode != &ms_ListHead; pNode = pNode->Flink, lpProcProtectInfo = NULL)
+		{
+			lpProcProtectInfo = CONTAINING_RECORD(pNode, PROC_WHITE_LIST, List);
+			if (!lpProcProtectInfo)
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed");
+				__leave;
+			}
+
+			lpCommInfo->Proc.ulPid = lpProcProtectInfo->ulPid;
+
+			lpCommInfo++;
+		}
+
+		bRet = TRUE;
+	}
+	__finally
+	{
+		FreeLock();
+	}
+
+	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"end");
 
 	return bRet;
 }
