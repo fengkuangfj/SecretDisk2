@@ -97,7 +97,7 @@ private:
 		CreateUseOigInfo(
 		__in		PFLT_CALLBACK_DATA		pData,
 		__in		CKrnlStr			*	pFileName,
-		__out_opt	FILE_OBJECT_TYPE			*	ObjType		= NULL
+		__out_opt	FILE_OBJECT_TYPE	*	pObjType
 		);
 
 	/*
@@ -125,22 +125,22 @@ private:
 		__in CKrnlStr			*	pFileName,
 		__in BOOLEAN				bDelTag,
 		__in BOOLEAN				bRelation,
-		__in FILE_OBJECT_TYPE			ObjType		
+		__in FILE_OBJECT_TYPE		ObjType
 		);
 
 	static
 		BOOLEAN
 		GetFileAttributes(
-		__in PFLT_CALLBACK_DATA	pData,
-		__in CKrnlStr*			pFileName,
-		__in PULONG				pFileAttributes
+		__in PFLT_CALLBACK_DATA		pData,
+		__in CKrnlStr			*	pFileName,
+		__in PULONG					pFileAttributes
 		);
 
 	static
 		BOOLEAN
 		SetFileAttributes(
-		__in PFLT_CALLBACK_DATA	pData,
-		__in CKrnlStr*			pFileName,
-		__in ULONG				ulFileAttributes
+		__in PFLT_CALLBACK_DATA		pData,
+		__in CKrnlStr			*	pFileName,
+		__in ULONG					ulFileAttributes
 		);
 };

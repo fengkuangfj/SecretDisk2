@@ -39,9 +39,9 @@
 
 typedef struct _PROC_WHITE_LIST
 {
-	ULONG		ulPid;	//½ø³ÌID
+	ULONG		ulPid;
 
-	LIST_ENTRY  List;  
+	LIST_ENTRY  List;
 } PROC_WHITE_LIST, *PPROC_WHITE_LIST, *LPPROC_WHITE_LIST;
 
 typedef

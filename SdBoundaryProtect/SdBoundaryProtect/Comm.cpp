@@ -68,7 +68,7 @@ BOOLEAN
 		ntStatus = FltBuildDefaultSecurityDescriptor(&pSd, FLT_PORT_ALL_ACCESS);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltBuildDefaultSecurityDescriptor failed (%x)", ntStatus);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltBuildDefaultSecurityDescriptor failed. (%x)", ntStatus);
 			__leave;
 		}
 
@@ -92,7 +92,7 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateCommunicationPort failed (%x)", ntStatus);				
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateCommunicationPort failed. (%x)", ntStatus);				
 			__leave;
 		}
 

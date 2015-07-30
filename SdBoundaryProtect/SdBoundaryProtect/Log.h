@@ -105,7 +105,7 @@ public:
 	*/
 	BOOLEAN
 		InitLogFile(
-		__in BOOLEAN bReset = FALSE
+		__in BOOLEAN bReset
 		);
 
 	BOOLEAN

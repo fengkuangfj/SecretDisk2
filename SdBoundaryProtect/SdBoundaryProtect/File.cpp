@@ -51,7 +51,7 @@ BOOLEAN
 	__in CKrnlStr			*	pFileName,
 	__in BOOLEAN				bDelTag,
 	__in BOOLEAN				bRelation,
-	__in FILE_OBJECT_TYPE			ObjType		
+	__in FILE_OBJECT_TYPE		ObjType
 	)
 {
 	BOOLEAN							bRet				= FALSE;
@@ -64,13 +64,14 @@ BOOLEAN
 	FILE_DISPOSITION_INFORMATION	DispositionInfo		= {0};
 	ULONG							ulCreateOption		= 0;
 	ULONG							ulFileAttributes	= 0;
+	BOOLEAN							bCancelReadOnly		= FALSE;
 
 
 	__try
 	{
 		if (!pData || !pFileName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pData(%p) pFileName(%p)",
 				pData, pFileName);
 
 			__leave;
@@ -99,18 +100,20 @@ BOOLEAN
 
 					if (!SetFileAttributes(pData, pFileName, ulFileAttributes))
 					{
-						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"SetFileAttributes failed. File(%wZ)",
+						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"SetFileAttributes failed. [1] File(%wZ)",
 							pFileName->Get());
 
 						__leave;
 					}
+
+					bCancelReadOnly = TRUE;
 				}
 
 				break;
 			}
 		case OBJECT_TYPE_DIR:
 			{
-				ulCreateOption = FILE_DIRECTORY_FILE;
+				ulCreateOption = FILE_DIRECTORY_FILE | FILE_COMPLETE_IF_OPLOCKED;
 				break;
 			}
 		default:
@@ -172,7 +175,7 @@ BOOLEAN
 						);
 					if (!NT_SUCCESS(ntStatus))
 					{
-						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile 2 failed. (%x) File(%wZ)",
+						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. [1] (%x) File(%wZ)",
 							ntStatus, pFileName->Get());
 
 						__leave;
@@ -180,7 +183,7 @@ BOOLEAN
 				}
 				else
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile 1 failed. (%x) File(%wZ)",
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. [2] (%x) File(%wZ)",
 						ntStatus, pFileName->Get());
 
 					__leave;
@@ -236,6 +239,15 @@ BOOLEAN
 			FltClose(Handle);
 			Handle = NULL;
 		}
+
+		if (!bRet && bCancelReadOnly)
+		{
+			ulFileAttributes |= FILE_ATTRIBUTE_READONLY;
+
+			if (!SetFileAttributes(pData, pFileName, ulFileAttributes))
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"SetFileAttributes failed. [2] File(%wZ)",
+				pFileName->Get());
+		}
 	}
 
 	return bRet;
@@ -248,7 +260,7 @@ FILE_OBJECT_TYPE
 	__in BOOLEAN				bRelation
 	)
 {
-	FILE_OBJECT_TYPE					ObjType				= OBJECT_TYPE_NULL;
+	FILE_OBJECT_TYPE			ObjType				= OBJECT_TYPE_NULL;
 
 	NTSTATUS					ntStatus			= STATUS_UNSUCCESSFUL;
 	FILE_STANDARD_INFORMATION	FileStdInfo			= {0};
@@ -265,16 +277,8 @@ FILE_OBJECT_TYPE
 	{
 		if (!pData || !pFileName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pData(%p) pFileName(%p)",
 				pData, pFileName);
-
-			__leave;
-		}
-
-		if (L'\\' != *(pFileName->GetString()))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFileName error. File(%wZ)",
-				pFileName->Get());
 
 			__leave;
 		}
@@ -282,12 +286,6 @@ FILE_OBJECT_TYPE
 		if (FileName.IsVolume(pData, pFileName))
 		{
 			ObjType = OBJECT_TYPE_VOLUME;
-			__leave;
-		}
-
-		if (L'\\' == *(pFileName->GetString() + pFileName->GetLenCh() - 1))
-		{
-			ObjType = OBJECT_TYPE_DIR;
 			__leave;
 		}
 
@@ -319,7 +317,7 @@ FILE_OBJECT_TYPE
 					0,
 					IO_IGNORE_SHARE_ACCESS_CHECK
 					);
-				if (NT_SUCCESS(ntStatus))
+				if (NT_SUCCESS(ntStatus) || STATUS_SHARING_VIOLATION == ntStatus)
 				{
 					ObjType = OBJECT_TYPE_DIR;
 					__leave;
@@ -331,29 +329,19 @@ FILE_OBJECT_TYPE
 					__leave;
 				}
 
-				if (STATUS_SHARING_VIOLATION == ntStatus)
-				{
-					ObjType = OBJECT_TYPE_DIR;
-					__leave;
-				}
-
 				if (STATUS_OBJECT_NAME_INVALID == ntStatus ||
 					STATUS_OBJECT_NAME_NOT_FOUND == ntStatus ||
 					STATUS_OBJECT_PATH_INVALID == ntStatus ||
 					STATUS_OBJECT_PATH_NOT_FOUND == ntStatus)
 				{
 					if (!CreateUseOigInfo(pData, pFileName, &ObjType))
-					{
-						// 						KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"CreateUseOigInfo failed. File(%wZ)",
-						// 							pFileName->Get());
-
 						__leave;
-					}
 
 					bCreateUseOigInfo = TRUE;
 					__leave;
 				}
-				else if (STATUS_DELETE_PENDING == ntStatus)
+				
+				if (STATUS_DELETE_PENDING == ntStatus)
 					__leave;
 
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[IRP_MJ_CREATE] FltCreateFile failed. (%x) File(%wZ)",
@@ -386,15 +374,7 @@ FILE_OBJECT_TYPE
 					}
 
 					if (STATUS_FILE_DELETED == ntStatus)
-					{
-						// 						KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"FltIsDirectory failed. (%x) (%x) File(%wZ)",
-						// 							ntStatus, pData->Iopb->MajorFunction, pFileName->Get());
-
 						__leave;
-					}
-
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltIsDirectory failed. (%x) (%x) File(%wZ)",
-						ntStatus, pData->Iopb->MajorFunction, pFileName->Get());
 
 					ntStatus = FltQueryInformationFile(
 						pData->Iopb->TargetInstance,
@@ -414,8 +394,8 @@ FILE_OBJECT_TYPE
 						__leave;
 					}
 
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltQueryInformationFile failed. (%x) (%x) File(%wZ)",
-						ntStatus, pData->Iopb->MajorFunction, pFileName->Get());
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[%x] [Relation] FltQueryInformationFile failed. (%x) File(%wZ)",
+						pData->Iopb->MajorFunction, ntStatus, pFileName->Get());
 
 					__leave;
 				}
@@ -460,19 +440,13 @@ FILE_OBJECT_TYPE
 					STATUS_OBJECT_NAME_NOT_FOUND == ntStatus ||
 					STATUS_OBJECT_PATH_INVALID == ntStatus ||
 					STATUS_OBJECT_PATH_NOT_FOUND == ntStatus)
-				{
-					// 					KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. (%x) (%x) File(%wZ)",
-					// 					ntStatus, pData->Iopb->MajorFunction, pFileName->Get());
-					;
-				}
-				else
-				{
-					if (STATUS_DELETE_PENDING == ntStatus && IRP_MJ_DIRECTORY_CONTROL == pData->Iopb->MajorFunction)
-						__leave;
+					__leave;
 
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. (%x) (%x) File(%wZ)",
-						ntStatus, pData->Iopb->MajorFunction, pFileName->Get());
-				}
+				if (STATUS_DELETE_PENDING == ntStatus)
+					__leave;
+
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[%x] FltCreateFile failed. (%x) File(%wZ)",
+					pData->Iopb->MajorFunction, ntStatus, pFileName->Get());
 
 				break;
 			}
@@ -508,7 +482,7 @@ BOOLEAN
 	CFile::CreateUseOigInfo(
 	__in		PFLT_CALLBACK_DATA		pData,
 	__in		CKrnlStr			*	pFileName,
-	__out_opt	FILE_OBJECT_TYPE			*	ObjType
+	__out_opt	FILE_OBJECT_TYPE	*	pObjType
 	)
 {
 	BOOLEAN				bRet				= FALSE;
@@ -524,7 +498,7 @@ BOOLEAN
 	{
 		if (!pData || !pFileName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pData(%p) pFileName(%p)",
 				pData, pFileName);
 
 			__leave;
@@ -559,19 +533,14 @@ BOOLEAN
 			IO_FORCE_ACCESS_CHECK
 			);
 		if (!NT_SUCCESS(ntStatus))
-		{
-			// 			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. (%x) File(%wZ)",
-			// 				ntStatus, &pData->Iopb->TargetFileObject->FileName);
-
 			__leave;
-		}
 
-		if (ObjType)
+		if (pObjType)
 		{
 			if (FlagOn(ulCreateOptions, FILE_DIRECTORY_FILE))
-				*ObjType = OBJECT_TYPE_DIR;
+				*pObjType = OBJECT_TYPE_DIR;
 			else
-				*ObjType = OBJECT_TYPE_FILE;
+				*pObjType = OBJECT_TYPE_FILE;
 		}
 
 		bRet = TRUE;
@@ -590,9 +559,9 @@ BOOLEAN
 
 BOOLEAN
 	CFile::GetFileAttributes(
-	__in PFLT_CALLBACK_DATA	pData,
-	__in CKrnlStr*			pFileName,
-	__in PULONG				pFileAttributes
+	__in PFLT_CALLBACK_DATA		pData,
+	__in CKrnlStr			*	pFileName,
+	__in PULONG					pFileAttributes
 	)
 {
 	BOOLEAN					bRet			= FALSE;
@@ -610,7 +579,7 @@ BOOLEAN
 	{
 		if (!pData || !pFileName || !pFileAttributes)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p) pFileAttributes(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pData(%p) pFileName(%p) pFileAttributes(%p)",
 				pData, pFileName, pFileAttributes);
 
 			__leave;
@@ -641,7 +610,7 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			if (ntStatus == STATUS_SHARING_VIOLATION)
+			if (STATUS_SHARING_VIOLATION == ntStatus)
 			{
 				ntStatus = FltCreateFile(
 					CMinifilter::ms_pMfIns->m_pFltFilter,
@@ -696,7 +665,7 @@ BOOLEAN
 					}
 				}
 			}
-			else if (ntStatus == STATUS_ACCESS_DENIED)
+			else if (STATUS_ACCESS_DENIED == ntStatus)
 			{
 				ntStatus = FltCreateFile(
 					CMinifilter::ms_pMfIns->m_pFltFilter,
@@ -741,13 +710,12 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ObReferenceObjectByHandle failed (%x)",
-				ntStatus);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ObReferenceObjectByHandle failed. (%x) File(%wZ)",
+				ntStatus, pFileName->Get());
 
 			__leave;
 		}
 
-		// 获取属性
 		ntStatus = FltQueryInformationFile(
 			pData->Iopb->TargetInstance,
 			pFileObj,
@@ -758,7 +726,7 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltQueryInformationFile failed (%x) File(%wZ)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltQueryInformationFile failed. (%x) File(%wZ)",
 				ntStatus, pFileName->Get());
 
 			__leave;
@@ -787,9 +755,9 @@ BOOLEAN
 
 BOOLEAN
 	CFile::SetFileAttributes(
-	__in PFLT_CALLBACK_DATA	pData,
-	__in CKrnlStr*			pFileName,
-	__in ULONG				ulFileAttributes
+	__in PFLT_CALLBACK_DATA		pData,
+	__in CKrnlStr			*	pFileName,
+	__in ULONG					ulFileAttributes
 	)
 {
 	BOOLEAN					bRet				= FALSE;
@@ -808,7 +776,7 @@ BOOLEAN
 	{
 		if (!pData || !pFileName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pData(%p) pFileName(%p)",
 				pData, pFileName);
 
 			__leave;
@@ -839,7 +807,7 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			if (ntStatus == STATUS_SHARING_VIOLATION)
+			if (STATUS_SHARING_VIOLATION == ntStatus)
 			{
 				ntStatus = FltCreateFile(
 					CMinifilter::ms_pMfIns->m_pFltFilter,
@@ -859,13 +827,13 @@ BOOLEAN
 					);
 				if (!NT_SUCCESS(ntStatus))
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. [ALL] (%x) File(%wZ)",
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. [1] (%x) File(%wZ)",
 						ntStatus, pFileName->Get());
 
 					__leave;
 				}
 			}
-			else if (ntStatus == STATUS_ACCESS_DENIED)
+			else if (STATUS_ACCESS_DENIED == ntStatus)
 			{
 				ntStatus = FltCreateFile(
 					CMinifilter::ms_pMfIns->m_pFltFilter,
@@ -885,7 +853,7 @@ BOOLEAN
 					);
 				if (!NT_SUCCESS(ntStatus))
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. [FILE_WRITE_ATTRIBUTES] (%x) File(%wZ)",
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. [2] (%x) File(%wZ)",
 						ntStatus, pFileName->Get());
 
 					__leave;
@@ -893,8 +861,7 @@ BOOLEAN
 			}
 			else
 			{
-				if (STATUS_DELETE_PENDING != ntStatus)
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. [NULL] (%x) File(%wZ)",
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltCreateFile failed. [3] (%x) File(%wZ)",
 					ntStatus, pFileName->Get());
 
 				__leave;
@@ -911,13 +878,12 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ObReferenceObjectByHandle failed (%x)",
-				ntStatus);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ObReferenceObjectByHandle failed. (%x) File(%wZ)",
+				ntStatus, pFileName->Get());
 
 			__leave;
 		}
 
-		// 获取属性
 		ntStatus = FltQueryInformationFile(
 			pData->Iopb->TargetInstance,
 			pFileObj,
@@ -928,7 +894,7 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltQueryInformationFile failed (%x) File(%wZ)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltQueryInformationFile failed. (%x) File(%wZ)",
 				ntStatus, pFileName->Get());
 
 			__leave;
@@ -936,7 +902,6 @@ BOOLEAN
 
 		RtlCopyMemory(&FileBasicInfoNew, &FileBasicInfo, ulRet);
 
-		// 设置属性
 		if (FileBasicInfoNew.FileAttributes != ulFileAttributes)
 		{
 			FileBasicInfoNew.FileAttributes = ulFileAttributes;
@@ -950,7 +915,7 @@ BOOLEAN
 				);
 			if (!NT_SUCCESS(ntStatus))
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltSetInformationFile failed (%x) File(%wZ)",
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltSetInformationFile failed. (%x) File(%wZ)",
 					ntStatus, pFileName->Get());
 
 				__leave;
