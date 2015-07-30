@@ -91,7 +91,13 @@ BOOLEAN
 	}
 	__finally
 	{
-		;
+		if (!bRet)
+		{
+			ExDeleteResourceLite(&ms_Lock);
+			RtlZeroMemory(&ms_Lock, sizeof(ms_Lock));
+
+			ms_fpZwQueryInformationProcess = NULL;
+		}
 	}
 
 	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"end");
@@ -105,7 +111,6 @@ BOOLEAN
 	BOOLEAN				bRet				= FALSE;
 
 	LPPROC_WHITE_LIST	lpProcProtectInfo	= NULL;
-	PLIST_ENTRY			pNode				= NULL;		
 
 
 	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
@@ -139,6 +144,8 @@ BOOLEAN
 
 		ExDeleteResourceLite(&ms_Lock);
 		RtlZeroMemory(&ms_Lock, sizeof(ms_Lock));
+
+		ms_fpZwQueryInformationProcess = NULL;
 	}
 
 	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"end");
@@ -176,6 +183,8 @@ BOOLEAN
 			delete lpProcProtectInfo;
 			lpProcProtectInfo = NULL;
 		}
+
+		bRet = TRUE;
 	}
 	__finally
 	{
@@ -286,7 +295,9 @@ BOOLEAN
 
 		if (Get(ulPid))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"Already exist. Need not insert");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"need not insert. Pid(%d)",
+				ulPid);
+
 			__leave;
 		}
 
@@ -324,7 +335,7 @@ BOOLEAN
 		lpProcProtectInfo = Get(ulPid);
 		if (!lpProcProtectInfo)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"not exist. Need not del. ulPid(%d)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"Get failed. ulPid(%d)",
 				ulPid);
 
 			__leave;
@@ -374,7 +385,9 @@ LPPROC_WHITE_LIST
 			lpProcProtectInfo = CONTAINING_RECORD(pNode, PROC_WHITE_LIST, List);
 			if (!lpProcProtectInfo)
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed");
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Pid(%d)",
+					ulPid);
+
 				__leave;
 			}
 
@@ -404,8 +417,7 @@ BOOLEAN
 BOOLEAN
 	CProcWhiteList::GetProcPath(
 	__in ULONG			ulPid,
-	__in CKrnlStr	*	pProcPath,
-	__in BOOLEAN		bForce
+	__in CKrnlStr	*	pProcPath
 	)
 {
 	BOOLEAN		bRet													= FALSE;
@@ -421,7 +433,7 @@ BOOLEAN
 	{
 		if (!pProcPath)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
 		}
 
@@ -431,10 +443,6 @@ BOOLEAN
 			__leave;
 		}
 
-		if (!bForce)
-			__leave;
-
-		// 获取进程对象
 		ntStatus = PsLookupProcessByProcessId((HANDLE)ulPid, &pEprocess);
 		if (!NT_SUCCESS(ntStatus))
 		{
@@ -444,7 +452,6 @@ BOOLEAN
 			__leave;
 		}
 
-		// 获取进程句柄
 		ntStatus = ObOpenObjectByPointer(
 			pEprocess,
 			OBJ_KERNEL_HANDLE,
@@ -464,17 +471,17 @@ BOOLEAN
 
 		if (!pProcPath->Init())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pProcPath->Init failed");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pProcPath->Init failed. Pid(%d)",
+				ulPid);
 
 			__leave;
 		}
 
-		// 获取进程信息
 		ntStatus = ms_fpZwQueryInformationProcess(
 			hProcess,
 			ProcessImageFileName,
 			Buffer,
-			MAX_PATH * sizeof(WCHAR) + 2 * sizeof(ULONG),
+			sizeof(Buffer),
 			&ulLen
 			);
 		if (!NT_SUCCESS(ntStatus))
@@ -487,8 +494,8 @@ BOOLEAN
 
 		if (!pProcPath->Set((PUNICODE_STRING)Buffer))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pProcPath.Set failed. Path(%wZ)",
-				Buffer);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pProcPath.Set failed. Path(%wZ) Pid(%d)",
+				Buffer, ulPid);
 
 			__leave;
 		}
