@@ -1075,7 +1075,12 @@ BOOLEAN
 	__in CKrnlStr * pLogDir
 	)
 {
-	BOOLEAN		bRet	= FALSE;
+	BOOLEAN					bRet		= FALSE;
+
+	OBJECT_ATTRIBUTES		Oa			= {0};
+	NTSTATUS				ntStatus	= STATUS_UNSUCCESSFUL;
+	IO_STATUS_BLOCK			Iosb		= {0};
+	HANDLE					hDir		= NULL;
 
 	CFileName	FileName;
 
@@ -1098,7 +1103,7 @@ BOOLEAN
 			__leave;
 		}
 
-		if (!FileName.GetFltInstance(pLogDir, &ms_pFltInstance))
+		if (!FileName.GetFltInstance(pLogDir, &ms_pFltInstance, TYPE_DEV))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FileName.GetFltInstance failed. Dir(%wZ)",
 				pLogDir->Get());
@@ -1114,11 +1119,51 @@ BOOLEAN
 			__leave;
 		}
 
+		InitializeObjectAttributes(
+			&Oa,
+			ms_pLogDir->Get(),
+			OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
+			NULL,
+			NULL
+			);
+
+		FreeLock();
+		ntStatus = FltCreateFile(
+			CMinifilter::ms_pMfIns->m_pFltFilter,
+			ms_pFltInstance,
+			&hDir,
+			GENERIC_READ | GENERIC_WRITE | SYNCHRONIZE,
+			&Oa,
+			&Iosb,
+			NULL,
+			FILE_ATTRIBUTE_NORMAL,
+			NULL,
+			FILE_OPEN_IF,
+			FILE_DIRECTORY_FILE | FILE_COMPLETE_IF_OPLOCKED | FILE_NO_INTERMEDIATE_BUFFERING,
+			NULL,
+			0,
+			IO_IGNORE_SHARE_ACCESS_CHECK
+			);
+		GetLock();
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"FltCreateFile failed. (%x) Dir(%wZ)",
+				ntStatus, ms_pLogDir->Get());
+
+			__leave;
+		}
+
 		bRet = TRUE;
 	}
 	__finally
 	{
 		FreeLock();
+
+		if (hDir)
+		{
+			FltClose(hDir);
+			hDir = NULL;
+		}
 	}
 
 	return bRet;

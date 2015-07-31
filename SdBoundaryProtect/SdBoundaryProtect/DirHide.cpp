@@ -149,12 +149,15 @@ BOOLEAN
 				__leave;
 			}
 
-			if (!Path.Append(L"\\", wcslen(L"\\")))
+			if (L'\\' != *(Path.GetString() + Path.GetLenCh() - 1))
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"Path.Append failed. Path(%wZ)",
-					Path.Get());
+				if (!Path.Append(L"\\", wcslen(L"\\")))
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"Path.Append failed. Path(%wZ)",
+						Path.Get());
 
-				__leave;
+					__leave;
+				}
 			}
 
 			if (!Path.Append(&Name))

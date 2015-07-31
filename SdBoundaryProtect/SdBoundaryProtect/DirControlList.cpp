@@ -626,6 +626,9 @@ BOOLEAN
 				__leave;
 			}
 
+			if (!FlagOn(lpDirProtectInfo->Type, DIR_CONTROL_TYPE_HIDE))
+				continue;
+
 			if (!FileName1.Set(&lpDirProtectInfo->ParentDirRuleEx))
 			{
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName1.Set failed. File(%wZ)",
