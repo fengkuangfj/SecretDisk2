@@ -276,6 +276,15 @@ int _tmain(int argc, _TCHAR* argv[])
 				printf("%d \n", lpCommInfoTemp->Proc.ulPid);
 			}
 		}
+
+		// 通知驱动停止工作
+// 		bResult = Comm.SendMsg(
+// 			IOCTL_UM_STOP,
+// 			NULL,
+// 			NULL,
+// 			0,
+// 			NULL
+// 			);
 	}
 	__finally
 	{
