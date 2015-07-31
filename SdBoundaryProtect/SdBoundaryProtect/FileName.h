@@ -433,4 +433,20 @@ private:
 		__out	CKrnlStr * pDevName
 		);
 
+	BOOLEAN
+		IsSystemRootPath(
+		__in CKrnlStr * pFileName
+		);
+
+	BOOLEAN
+		SystemRootToDev(
+		__in	CKrnlStr * pFileName,
+		__inout CKrnlStr * pFileNameDev
+		);
+
+	BOOLEAN
+		ConvertByZwQuerySymbolicLinkObject(
+		__in	CKrnlStr * pFileName,
+		__inout CKrnlStr * pNewFileName
+		);
 };

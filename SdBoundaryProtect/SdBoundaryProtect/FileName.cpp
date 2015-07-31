@@ -362,6 +362,20 @@ BOOLEAN
 			__leave;
 		}
 
+		if (FileName.IsSystemRootPath(pName))
+		{
+			if (!FileName.SystemRootToDev(pName, pDevName))
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"SystemRootToDev failed. File(%wZ)",
+					pName->Get());
+
+				__leave;
+			}
+
+			bRet = TRUE;
+			__leave;
+		}
+
 		if (!ParseAppOrSymName(pName, &PrePartName, &PostPartName, &bDisk, &NameType))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ParseAppOrSymName failed. Name(%wZ)",
@@ -2332,6 +2346,246 @@ BOOLEAN
 	__finally
 	{
 		FileName.FreeLock();
+	}
+
+	return bRet;
+}
+
+BOOLEAN
+	CFileName::IsSystemRootPath(
+	__in CKrnlStr * pFileName
+	)
+{
+	BOOLEAN		bRet		= FALSE;
+
+	CKrnlStr	FileName;
+
+
+	__try
+	{
+		if (!pFileName)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
+			__leave;
+		}
+
+		if (11 > pFileName->GetLenCh())
+			__leave;
+
+		if (!FileName.Set(pFileName))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName.Set failed. File(%wZ)",
+				pFileName->Get());
+
+			__leave;
+		}
+
+		if (!FileName.Shorten(11))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName.Shorten failed. File(%wZ)",
+				pFileName->Get());
+
+			__leave;
+		}
+
+		bRet = FileName.Equal(L"\\systemroot", wcslen(L"\\systemroot"), TRUE);
+	}
+	__finally
+	{
+		;
+	}
+
+	return bRet;
+}
+
+BOOLEAN
+	CFileName::SystemRootToDev(
+	__in	CKrnlStr * pFileName,
+	__inout CKrnlStr * pFileNameDev
+	)
+{
+	BOOLEAN bRet = FALSE;
+
+	CKrnlStr FileNameSystemRoot;
+	CKrnlStr FileNameTmpLong;
+	CKrnlStr FileNameTmpShort;
+	CKrnlStr FileNameWindows;
+
+	PWCHAR	pPosition = NULL;
+
+
+	__try
+	{
+		GetLock();
+
+		if (!pFileName || !pFileNameDev)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pFileName(%p) pFileNameDev(%p)",
+				pFileName, pFileNameDev);
+
+			__leave;
+		}
+
+		if (!FileNameSystemRoot.Set(pFileName))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileNameSystemRoot.Set failed. File(%wZ)",
+				pFileName->Get());
+
+			__leave;
+		}
+
+		if (!FileNameSystemRoot.Shorten(11))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileNameSystemRoot.Shorten failed. File(%wZ)",
+				FileNameSystemRoot.Get());
+
+			__leave;
+		}
+
+		if (!ConvertByZwQuerySymbolicLinkObject(&FileNameSystemRoot, &FileNameTmpLong))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ConvertByZwQuerySymbolicLinkObject failed. File(%wZ)",
+				FileNameSystemRoot.Get());
+
+			__leave;
+		}
+
+		if (!FileNameTmpShort.Set(&FileNameTmpLong))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileNameTmpShort.Set failed. File(%wZ)",
+				FileNameTmpLong.Get());
+
+			__leave;
+		}
+
+		for (pPosition = FileNameTmpShort.GetString() + FileNameTmpShort.GetLenCh() - 1; pPosition >= FileNameTmpShort.GetString(); pPosition--)
+		{
+			if (*pPosition == L'\\')
+				break;
+		}
+
+		if (!FileNameWindows.Set(pPosition, FileNameTmpShort.GetLenCh() - (USHORT)(pPosition - FileNameTmpShort.GetString())))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileNameWindows.Set failed. Windows(%lS)",
+				pPosition);
+
+			__leave;
+		}
+
+		if (!FileNameTmpShort.Shorten((USHORT)(pPosition - FileNameTmpShort.GetString())))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileNameTmpShort.Shorten failed. File(%wZ)",
+				FileNameTmpShort.Get());
+
+			__leave;
+		}
+
+		if (!ConvertByZwQuerySymbolicLinkObject(&FileNameTmpShort, pFileNameDev))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ConvertByZwQuerySymbolicLinkObject failed. File(%wZ)",
+				FileNameTmpShort.Get());
+
+			__leave;
+		}
+
+		if (!pFileNameDev->Append(&FileNameWindows))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFileNameDev->Append failed. File(%wZ) File(%wZ)",
+				pFileNameDev->Get(), FileNameWindows.Get());
+
+			__leave;
+		}
+
+		if (!pFileNameDev->Append(pFileName->GetString() + 11, pFileName->GetLenCh() - 11))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFileNameDev->Append failed. File(%wZ) File(%wZ)",
+				pFileNameDev->Get(), pFileName->Get());
+
+			__leave;
+		}
+
+		bRet = TRUE;
+	}
+	__finally
+	{
+		FreeLock();
+	}
+
+	return bRet;
+}
+
+BOOLEAN
+	CFileName::ConvertByZwQuerySymbolicLinkObject(
+	__in	CKrnlStr * pFileName,
+	__inout CKrnlStr * pNewFileName
+	)
+{
+	BOOLEAN				bRet		= FALSE;
+
+	OBJECT_ATTRIBUTES	Oa			= {0};
+	NTSTATUS			ntStatus	= STATUS_UNSUCCESSFUL;
+	HANDLE				Handle		= NULL;
+
+
+	__try
+	{
+		if (!pFileName || !pNewFileName)
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pFileName(%p) pNewFileName(%p)",
+				pFileName, pNewFileName);
+
+			__leave;
+		}
+
+		InitializeObjectAttributes(
+			&Oa, 
+			pFileName->Get(),
+			OBJ_CASE_INSENSITIVE,
+			NULL, 
+			NULL
+			);
+
+		ntStatus = ZwOpenSymbolicLinkObject(
+			&Handle, 
+			GENERIC_READ, 
+			&Oa
+			);
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ZwOpenSymbolicLinkObject failed. File(%wZ) (%x)",
+				pFileName->Get(), ntStatus);
+
+			__leave;
+		}
+
+		if (!pNewFileName->Init())
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pNewFileName->Init failed");
+			__leave;
+		}
+
+		ntStatus = ZwQuerySymbolicLinkObject(
+			Handle, 
+			pNewFileName->Get(), 
+			NULL
+			);
+		if (!NT_SUCCESS(ntStatus))
+		{
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ZwQuerySymbolicLinkObject failed. File(%wZ) (%x)",
+				pFileName->Get(), ntStatus);
+
+			__leave;
+		}
+
+		bRet = TRUE;
+	}
+	__finally
+	{
+		if (Handle)
+		{
+			ZwClose(Handle);
+			Handle = NULL;
+		}
 	}
 
 	return bRet;
