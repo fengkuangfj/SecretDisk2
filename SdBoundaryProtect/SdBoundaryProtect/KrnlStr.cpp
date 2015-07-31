@@ -804,7 +804,7 @@ BOOLEAN
 	{
 		if (!pWchPosition1 || !pWchPosition2 || !usLenChCmp)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pWchPosition1(%p) pWchPosition2(%p) usLenB(%d)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pWchPosition1(%p) pWchPosition2(%p) usLenB(%d)",
 				pWchPosition1, pWchPosition2, usLenChCmp);
 
 			__leave;
@@ -879,7 +879,7 @@ PWCHAR
 	{
 		if (!pWchBegin || !pWchEnd)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pBegin(%p) pEnd(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pBegin(%p) pEnd(%p)",
 				pWchBegin, pWchEnd);
 
 			__leave;

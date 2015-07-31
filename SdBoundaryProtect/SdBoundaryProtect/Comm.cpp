@@ -354,7 +354,7 @@ NTSTATUS
 
 		if (!lpInputBuffer || !ulInputBufferLength || !pulReturnOutputBufferLength)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. lpInputBuffer(%p) ulInputBufferLength(%d) pulReturnOutputBufferLength(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. lpInputBuffer(%p) ulInputBufferLength(%d) pulReturnOutputBufferLength(%p)",
 				lpInputBuffer, ulInputBufferLength, pulReturnOutputBufferLength);
 
 			__leave;

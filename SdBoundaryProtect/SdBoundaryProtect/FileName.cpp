@@ -262,7 +262,7 @@ BOOLEAN
 	{
 		if (!pPath || !pParentPath)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pPath(%p) pParentPath(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pPath(%p) pParentPath(%p)",
 				pPath, pParentPath);
 
 			__leave;
@@ -352,6 +352,8 @@ BOOLEAN
 
 	__try
 	{
+		FileName.GetLock();
+
 		if (!pName || !pDevName)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pName(%p) pDevName(%p)",
@@ -421,7 +423,7 @@ BOOLEAN
 	}
 	__finally
 	{
-		;
+		FileName.FreeLock();
 	}
 
 	return bRet;
@@ -444,7 +446,7 @@ BOOLEAN
 	{
 		if (!pData || !pFltVol || !pName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFltVol(%p) pName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pData(%p) pFltVol(%p) pName(%p)",
 				pData, pFltVol, pName);
 
 			__leave;
@@ -452,7 +454,9 @@ BOOLEAN
 
 		if (!GetVolDevNameFromFltVol(pFltVol, pName))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"GetDevNameFromFltVol failed");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"GetDevNameFromFltVol failed. Name(%wZ)",
+				&pData->Iopb->TargetFileObject->FileName);
+
 			__leave;
 		}
 
@@ -478,8 +482,7 @@ BOOLEAN
 			}
 		}
 
-		if (IRP_MJ_CREATE == pData->Iopb->MajorFunction &&
-			FlagOn(pData->Iopb->OperationFlags, SL_OPEN_TARGET_DIRECTORY))
+		if (IRP_MJ_CREATE == pData->Iopb->MajorFunction && FlagOn(pData->Iopb->OperationFlags, SL_OPEN_TARGET_DIRECTORY))
 		{
 			if (!CFileName::GetParentPath(pName, pName))
 			{
@@ -504,7 +507,7 @@ BOOLEAN
 	CFileName::GetFileFullPath(
 	__in	PFLT_CALLBACK_DATA		pData,
 	__in	PFLT_VOLUME				pFltVol,
-	__out	CKrnlStr			*	pName
+	__out	CKrnlStr			*	pDevName
 	)
 {
 	BOOLEAN						bRet		= FALSE;
@@ -515,10 +518,10 @@ BOOLEAN
 
 	__try
 	{
-		if (!pData || !pFltVol || !pName)
+		if (!pData || !pFltVol || !pDevName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFltVol(%p) pName(%p)",
-				pData, pFltVol, pName);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pData(%p) pFltVol(%p) pName(%p)",
+				pData, pFltVol, pDevName);
 
 			__leave;
 		}
@@ -531,7 +534,7 @@ BOOLEAN
 			);
 		if (!NT_SUCCESS(ntStatus))
 		{
-			if (!CFileName::GetFileFullPathFromDataAndFltVol(pData, pFltVol, pName))
+			if (!CFileName::GetFileFullPathFromDataAndFltVol(pData, pFltVol, pDevName))
 			{
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName.GetNameFromDataAndFltVol failed. Name(%wZ)",
 					&pData->Iopb->TargetFileObject->FileName);
@@ -541,7 +544,7 @@ BOOLEAN
 		}
 		else
 		{
-			if (!pName->Set(&pNameInfo->Name))
+			if (!pDevName->Set(&pNameInfo->Name))
 			{
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pName->Set failed. Name(%wZ)",
 					&pNameInfo->Name);
@@ -582,9 +585,9 @@ BOOLEAN
 */
 BOOLEAN
 	CFileName::SpliceFilePath(
-	__in	CKrnlStr*	pDirPath,
-	__in	CKrnlStr*	pFileName,
-	__inout	CKrnlStr*	pFilePath
+	__in	CKrnlStr * pDirPath,
+	__in	CKrnlStr * pFileName,
+	__inout	CKrnlStr * pFilePath
 	)
 {
 	BOOLEAN		bRet			= FALSE;
@@ -596,58 +599,55 @@ BOOLEAN
 	{
 		if (!pDirPath || !pFileName || !pFilePath)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pDirPath(%p) pFileName(%p) pFilePath(%p)", pDirPath, pFileName, pFilePath);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pDirPath(%p) pFileName(%p) pFilePath(%p)",
+				pDirPath, pFileName, pFilePath);
+
 			__leave;
 		}
-
 
 		if (!pFilePath->Set(pDirPath))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFilePath->Set failed. File(%wZ)", pDirPath->Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFilePath->Set failed. DirPath(%wZ)",
+				pDirPath->Get());
+
 			__leave;
 		}
 
-		// 开始判断FileName是否以'\'结束
-		if (!TmpFileName.Set(pFilePath->GetString() + pFilePath->GetLenCh() - 1, pFilePath->GetLenCh() - (pFilePath->GetLenCh() - 1)))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpFileName.Set failed. File(%wZ)", pFilePath->Get());
-			__leave;
-		}
-
-		if (TmpFileName.Equal(L"\\", wcslen(L"\\"), FALSE))
+		if (L'\\' == *(pFilePath->GetString() + pFilePath->GetLenCh() - 1))
 		{
 			if (!pFilePath->Shorten(pFilePath->GetLenCh() - 1))
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFilePath->Shorten failed. File(%wZ)", pFilePath->Get());
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFilePath->Shorten failed. DirPath(%wZ)",
+					pFilePath->Get());
+
 				__leave;
 			}
 		}
 
-		// 开始判断pFileName是否以'\'开始
 		if (!TmpFileName.Set(pFileName))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpFileName.Set failed. File(%wZ)", pFileName->Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpFileName.Set failed. FileName(%wZ)",
+				pFileName->Get());
+
 			__leave;
 		}
 
-		if (!TmpFileName.Shorten(1))
-		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpFileName.Shorten failed. File(%wZ)", TmpFileName.Get());
-			__leave;
-		}
-
-		if (!TmpFileName.Equal(L"\\", wcslen(L"\\"), FALSE))
+		if (L'\\' != *TmpFileName.GetString())
 		{
 			if (!pFilePath->Append(L"\\", wcslen(L"\\")))
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFilePath->Append failed. File(%wZ)", pFilePath->Get());
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFilePath->Append failed. DirPath(%wZ)",
+					pFilePath->Get());
+
 				__leave;
 			}
 		}
 
-		if (!pFilePath->Append(pFileName))
+		if (!pFilePath->Append(&TmpFileName))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFilePath->Append failed. File(%wZ)", pFileName->Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFilePath->Append failed. DirPath(%wZ) FileName(%wZ)",
+				pFileName->Get(), TmpFileName.Get());
+
 			__leave;
 		}
 
@@ -664,7 +664,7 @@ BOOLEAN
 BOOLEAN
 	CFileName::GetVolDevNameFromFltVol(
 	__in	PFLT_VOLUME		pFltVol,
-	__out	CKrnlStr	*	pName
+	__out	CKrnlStr	*	pDevName
 	)
 {
 	BOOLEAN		bRet			= FALSE;
@@ -675,10 +675,10 @@ BOOLEAN
 
 	__try
 	{
-		if (!pFltVol || !pName)
+		if (!pFltVol || !pDevName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pFltVol(%p) pName(%p)",
-				pFltVol, pName);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pFltVol(%p) pName(%p)",
+				pFltVol, pDevName);
 
 			__leave;
 		}
@@ -696,13 +696,13 @@ BOOLEAN
 
 		if (STATUS_BUFFER_TOO_SMALL != ntStatus)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"STATUS_BUFFER_TOO_SMALL != ntStatus. (%x)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"ntStatus error. (%x)",
 				ntStatus);
 
 			__leave;
 		}
 
-		if (!pName->Lengthen((USHORT)ulDevNameLen / sizeof(WCHAR)))
+		if (!pDevName->Lengthen((USHORT)ulDevNameLen / sizeof(WCHAR)))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pName->Lengthen failed.");
 			__leave;
@@ -710,7 +710,7 @@ BOOLEAN
 
 		ntStatus = FltGetVolumeName(
 			pFltVol,
-			pName->Get(),
+			pDevName->Get(),
 			NULL
 			);
 		if (!NT_SUCCESS(ntStatus))
@@ -733,13 +733,13 @@ BOOLEAN
 
 BOOLEAN
 	CFileName::InsertVolNameInfo(
-	__in_opt	CKrnlStr*		pAppName,
-	__in_opt	CKrnlStr*		pSymName,
-	__in		CKrnlStr*		pDevName,
-	__in		BOOLEAN			bOnlyDevName,
-	__in		BOOLEAN			bRemoveable,
-	__in		PFLT_INSTANCE	pFltInstance,
-	__in		ULONG			ulSectorSize
+	__in_opt	CKrnlStr		*	pAppName,
+	__in_opt	CKrnlStr		*	pSymName,
+	__in		CKrnlStr		*	pDevName,
+	__in		BOOLEAN				bOnlyDevName,
+	__in		BOOLEAN				bRemoveable,
+	__in		PFLT_INSTANCE		pFltInstance,
+	__in		ULONG				ulSectorSize
 	)
 {
 	BOOLEAN				bRet			= FALSE;
@@ -754,7 +754,7 @@ BOOLEAN
 
 		if (!pDevName || !pFltInstance || !ulSectorSize)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pDevName(%p) pFltInstance(%p) ulSectorSize(%d)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pDevName(%p) pFltInstance(%p) ulSectorSize(%d)",
 				pDevName, pFltInstance, ulSectorSize);
 
 			__leave;
@@ -772,28 +772,43 @@ BOOLEAN
 
 			if (!lpVolNameInfo->bOnlyDevName)
 			{
+				if (!pAppName || !pSymName)
+				{
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[OLD] input arguments error. pAppName(%p) pSymName(%p)",
+						pAppName, pSymName);
+
+					__leave;
+				}
+
 				if (!lpVolNameInfo->AppName.Set(pAppName))
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[OLD] lpVolNameInfo->AppName.Set failed");
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[OLD] lpVolNameInfo->AppName.Set failed. Name(%wZ)",
+						pAppName->Get());
+
 					__leave;
 				}
 
 				if (!lpVolNameInfo->AppName.ToUpper())
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[OLD] lpVolNameInfo->AppName.ToUpper failed");
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[OLD] lpVolNameInfo->AppName.ToUpper failed. Name(%wZ)",
+						lpVolNameInfo->AppName.Get());
+
 					__leave;
 				}
 
-
 				if (!lpVolNameInfo->SymName.Set(pSymName))
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[OLD] lpVolNameInfo->SymName.Set failed");
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[OLD] lpVolNameInfo->SymName.Set failed. Name(%wZ)",
+						pSymName->Get());
+
 					__leave;
 				}
 
 				if (!lpVolNameInfo->SymName.ToUpper())
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[OLD] lpVolNameInfo->SymName.ToUpper failed");
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[OLD] lpVolNameInfo->SymName.ToUpper failed. Name(%wZ)",
+						lpVolNameInfo->SymName.Get());
+
 					__leave;
 				}
 			}
@@ -811,40 +826,60 @@ BOOLEAN
 
 		if (!lpVolNameInfo->bOnlyDevName)
 		{
+			if (!pAppName || !pSymName)
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[NEW] input arguments error. pAppName(%p) pSymName(%p)",
+					pAppName, pSymName);
+
+				__leave;
+			}
+
 			if (!lpVolNameInfo->AppName.Set(pAppName))
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[NEW] lpVolNameInfo->AppName.Set failed");
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[NEW] lpVolNameInfo->AppName.Set failed. Name(%wZ)",
+					pAppName->Get());
+
 				__leave;
 			}
 
 			if (!lpVolNameInfo->AppName.ToUpper())
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[NEW] lpVolNameInfo->AppName.ToUpper failed");
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[NEW] lpVolNameInfo->AppName.ToUpper failed. Name(%wZ)",
+					lpVolNameInfo->AppName.Get());
+
 				__leave;
 			}
 
 			if (!lpVolNameInfo->SymName.Set(pSymName))
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[NEW] lpVolNameInfo->SymName.Set failed");
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[NEW] lpVolNameInfo->SymName.Set failed. Name(%wZ)",
+					pSymName->Get());
+
 				__leave;
 			}
 
 			if (!lpVolNameInfo->SymName.ToUpper())
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[NEW] lpVolNameInfo->SymName.ToUpper failed");
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[NEW] lpVolNameInfo->SymName.ToUpper failed. Name(%wZ)",
+					lpVolNameInfo->SymName.Get());
+
 				__leave;
 			}
 		}
 
 		if (!lpVolNameInfo->DevName.Set(pDevName))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"lpVolNameInfo->DevName.Set failed");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"lpVolNameInfo->DevName.Set failed. Name(%wZ)",
+				pDevName->Get());
+
 			__leave;
 		}
 
 		if (!lpVolNameInfo->DevName.ToUpper())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"lpVolNameInfo->DevName.ToUpper failed");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"lpVolNameInfo->DevName.ToUpper failed. Name(%wZ)",
+				lpVolNameInfo->DevName.Get());
+
 			__leave;
 		}
 
@@ -882,7 +917,7 @@ BOOLEAN
 */
 BOOLEAN
 	CFileName::DelVolNameInfo(
-	__in CKrnlStr* pName
+	__in CKrnlStr * pDevName
 	)
 {
 	BOOLEAN				bRet			= FALSE;
@@ -896,14 +931,18 @@ BOOLEAN
 
 		if (IsListEmpty(&ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Can not del");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. Name(%wZ)",
+				pDevName->Get());
+
 			__leave;
 		}
 
-		lpVolNameInfo = GetVolNameInfoByVolDevName(pName);
+		lpVolNameInfo = GetVolNameInfoByVolDevName(pDevName);
 		if (!lpVolNameInfo)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"Not exsit. Can not del. Vol(%wZ)", pName->Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"GetVolNameInfoByVolDevName failed. Name(%wZ)",
+				pDevName->Get());
+
 			__leave;
 		}
 
@@ -938,7 +977,7 @@ BOOLEAN
 */
 LPVOLUME_NAME_INFO 
 	CFileName::GetVolNameInfoByVolDevName(
-	__in CKrnlStr* pName
+	__in CKrnlStr * pName
 	)
 {
 	LPVOLUME_NAME_INFO	lpVolNameInfo	= NULL;
@@ -950,7 +989,7 @@ LPVOLUME_NAME_INFO
 	{
 		GetLock();
 
-		if (!pName || !pName->Get())
+		if (!pName)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
@@ -958,7 +997,9 @@ LPVOLUME_NAME_INFO
 
 		if (IsListEmpty(&ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Can not get. Vol(%wZ)", pName->Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Can not get. Vol(%wZ)",
+				pName->Get());
+
 			__leave;
 		}
 
@@ -967,7 +1008,9 @@ LPVOLUME_NAME_INFO
 			lpVolNameInfo = CONTAINING_RECORD(pNode, VOLUME_NAME_INFO, List);
 			if (!lpVolNameInfo)
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Vol(%wZ)", pName->Get());
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Vol(%wZ)",
+					pName->Get());
+
 				__leave;
 			}
 
@@ -1001,30 +1044,33 @@ LPVOLUME_NAME_INFO
 */
 BOOLEAN
 	CFileName::GetVolAppNameByQueryObj(
-	__in	CKrnlStr*	pName,
-	__inout CKrnlStr*	pAppName,
+	__in	CKrnlStr *	pName,
+	__inout CKrnlStr *	pAppName,
 	__inout PUSHORT		pusCutOffset
 	)
 {
 	BOOLEAN			bRet			=FALSE;
 
 	PWCHAR			pVolume			= NULL;
+
 	CKrnlStr		VolumeSym;
 	CKrnlStr		VolumeDevEx;	
 
 
 	__try
 	{
-		if (!pName || !pName->Get() || !pAppName || !pusCutOffset)
+		if (!pName || !pAppName || !pusCutOffset)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[ToApp] : input argument error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pName(%p) pAppName(%p) pusCutOffset(%p)",
+				pName, pAppName, pusCutOffset);
+
 			__leave;
 		}
 
 		// \\??\\A:
 		if (!VolumeSym.Set(L"\\??\\A:", wcslen(L"\\??\\A:")))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[ToApp] : VolumeSym.Set failed");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolumeSym.Set failed");
 			__leave;
 		}
 
@@ -1037,14 +1083,18 @@ BOOLEAN
 			// \\Device\\HarddiskVolume1\\*
 			if (!VolumeDevEx.Append(L"\\*", wcslen(L"\\*")))
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[ToApp] : VolumeDevEx.Append failed. Vol(%wZ)", VolumeDevEx.Get());
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolumeDevEx.Append failed. Vol(%wZ)",
+					VolumeDevEx.Get());
+
 				__leave;
 			}
 
 			// 转大写
 			if (!VolumeDevEx.ToUpper())
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[ToApp] : VolumeDevEx.ToUpper failed");
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolumeDevEx.ToUpper failed. Name(%wZ)",
+					VolumeDevEx.Get());
+
 				__leave;
 			}
 
@@ -1058,7 +1108,9 @@ BOOLEAN
 				// 获得卷的R3名
 				if (!pAppName->Set(pVolume, wcslen(pVolume)))
 				{
-					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[ToApp] : AppName->Set failed. Vol(%lS)", pVolume);
+					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"AppName->Set failed. Vol(%lS)",
+						pVolume);
+
 					__leave;
 				}
 
@@ -1068,7 +1120,12 @@ BOOLEAN
 			}
 
 			if (!VolumeDevEx.Clean())
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[ToApp] : VolumeDevEx.Clean failed. Vol(%wZ)", VolumeDevEx.Get());
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolumeDevEx.Clean failed. Vol(%wZ)",
+					VolumeDevEx.Get());
+
+				__leave;
+			}
 		}
 	}
 	__finally
@@ -1082,7 +1139,7 @@ BOOLEAN
 BOOLEAN
 	CFileName::IsVolume(
 	__in PFLT_CALLBACK_DATA		pData,
-	__in CKrnlStr			*	pFileName
+	__in CKrnlStr			*	pDevName
 	)
 {
 	BOOLEAN				bRet			= FALSE;
@@ -1097,16 +1154,15 @@ BOOLEAN
 	{
 		GetLock();
 
-		if (!pData || !pFileName)
+		if (!pData || !pDevName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) pFileName(%p)",
-				pData, pFileName);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pData(%p) pFileName(%p)",
+				pData, pDevName);
 
 			__leave;
 		}
 
-		if (IRP_MJ_CREATE == pData->Iopb->MajorFunction &&
-			FlagOn(pData->Iopb->TargetFileObject->Flags, FO_VOLUME_OPEN))
+		if (IRP_MJ_CREATE == pData->Iopb->MajorFunction && FlagOn(pData->Iopb->TargetFileObject->Flags, FO_VOLUME_OPEN))
 		{
 			bRet = TRUE;
 			__leave;
@@ -1114,16 +1170,16 @@ BOOLEAN
 
 		if (IsListEmpty(&ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. File(%wZ)",
-				pFileName->Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. File(%wZ)",
+				pDevName->Get());
 
 			__leave;
 		}
 
-		if (!FileName.Set(pFileName))
+		if (!FileName.Set(pDevName))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FileName.Set. File(%wZ)",
-				pFileName->Get());
+				pDevName->Get());
 
 			__leave;
 		}
@@ -1145,9 +1201,9 @@ BOOLEAN
 			if (!lpVolNameInfo)
 			{
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. File(%wZ)",
-					pFileName->Get());
-				__leave;
+					pDevName->Get());
 
+				__leave;
 			}
 
 			if (lpVolNameInfo->DevName.GetLenCh() == FileName.GetLenCh() &&
@@ -1171,7 +1227,7 @@ BOOLEAN
 	__in	PFLT_CALLBACK_DATA		pData,
 	__in	PCFLT_RELATED_OBJECTS	pFltObjects,
 	__in	HANDLE					hFile,
-	__out	CKrnlStr			*	pFileName
+	__out	CKrnlStr			*	pDevName
 	)
 {
 	BOOLEAN					bRet			= FALSE;
@@ -1186,10 +1242,10 @@ BOOLEAN
 
 	__try
 	{
-		if (!pData || !hFile || !pFileName)
+		if (!pData || !hFile || !pDevName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pData(%p) hFile(%p) pFileName(%p)",
-				pData, hFile, pFileName);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pData(%p) hFile(%p) pFileName(%p)",
+				pData, hFile, pDevName);
 
 			__leave;
 		}
@@ -1234,7 +1290,7 @@ BOOLEAN
 		pName = (PWCHAR)new(MEMORY_TAG_FILE_NAME) CHAR[pFileNameInfo->FileNameLength + sizeof(WCHAR)];
 		RtlCopyMemory(pName, pFileNameInfo->FileName, pFileNameInfo->FileNameLength);
 
-		if (!pFileName->Set(pName, wcslen(pName)))
+		if (!pDevName->Set(pName, wcslen(pName)))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFileName->Set failed. File(%lS)",
 				pName);
@@ -1242,37 +1298,37 @@ BOOLEAN
 			__leave;
 		}
 
-		if (L'\\' == *(pFileName->GetString() + pFileName->GetLenCh() - 1))
+		if (L'\\' == *(pDevName->GetString() + pDevName->GetLenCh() - 1))
 		{
-			if (!pFileName->Shorten(pFileName->GetLenCh() - 1))
+			if (!pDevName->Shorten(pDevName->GetLenCh() - 1))
 			{
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFileName->Shorten failed. File(%wZ)",
-					pFileName->Get());
+					pDevName->Get());
 
 				__leave;
 			}
 		}
 
-		if (!RelativeFileName.Set(pFileName))
+		if (!RelativeFileName.Set(pDevName))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"RelativeFileName.Set failed. File(%wZ)",
-				pFileName->Get());
+				pDevName->Get());
 
 			__leave;
 		}
 
-		if (!GetVolDevNameFromFltVol(pFltObjects->Volume, pFileName))
+		if (!GetVolDevNameFromFltVol(pFltObjects->Volume, pDevName))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"GetVolDevNameFromFltVol failed. File(%wZ)",
-				RelativeFileName.Get());
+				&pData->Iopb->TargetFileObject->FileName);
 
 			__leave;
 		}
 
-		if (!pFileName->Append(&RelativeFileName))
+		if (!pDevName->Append(&RelativeFileName))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pFileName->Append failed. Volume(%wZ) File(%wZ)",
-				pFileName->Get(), RelativeFileName.Get());
+				pDevName->Get(), RelativeFileName.Get());
 
 			__leave;
 		}
@@ -1299,7 +1355,7 @@ BOOLEAN
 
 BOOLEAN
 	CFileName::IsExpression(
-	__in CKrnlStr* pFileName
+	__in CKrnlStr * pFileName
 	)
 {
 	BOOLEAN bRet		= FALSE;
@@ -1315,9 +1371,9 @@ BOOLEAN
 			__leave;
 		}
 
-		for(pPosition = pFileName->GetString(); pPosition < pFileName->GetString() + pFileName->GetLenCh(); pPosition++)
+		for (pPosition = pFileName->GetString(); pPosition < pFileName->GetString() + pFileName->GetLenCh(); pPosition++)
 		{
-			if (*pPosition == L'*')
+			if (L'*' == *pPosition)
 			{
 				bRet = TRUE;
 				__leave;
@@ -1334,8 +1390,8 @@ BOOLEAN
 
 BOOLEAN
 	CFileName::IsDisMountStandard(
-	__in CKrnlStr*		pVolDevName,
-	__in PFLT_INSTANCE	pFltInstance
+	__in CKrnlStr		*	pVolDevName,
+	__in PFLT_INSTANCE		pFltInstance
 	)
 {
 	BOOLEAN				bRet			= FALSE;
@@ -1349,7 +1405,7 @@ BOOLEAN
 
 		if (!pVolDevName || !pFltInstance)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pVolDevName(%p) pFltInstance(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pVolDevName(%p) pFltInstance(%p)",
 				pVolDevName, pFltInstance);
 
 			__leave;
@@ -1377,9 +1433,9 @@ BOOLEAN
 
 BOOLEAN
 	CFileName::GetFltInstance(
-	__in	CKrnlStr*		pFileName,
-	__out	PFLT_INSTANCE*	pPFltInstance,
-	__in	NAME_TYPE		NameType
+	__in	CKrnlStr		*	pFileName,
+	__out	PFLT_INSTANCE	*	pPFltInstance,
+	__in	NAME_TYPE			NameType
 	)
 {
 	BOOLEAN				bRet			= FALSE;
@@ -1396,7 +1452,7 @@ BOOLEAN
 
 		if (!pFileName || !pPFltInstance)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pFileName(%p) pPFltInstance(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pFileName(%p) pPFltInstance(%p)",
 				pFileName, pPFltInstance);
 
 			__leave;
@@ -1437,12 +1493,15 @@ BOOLEAN
 				}
 			case TYPE_APP:
 				{
-					if (!VolNameEx.Set(&lpVolNameInfo->AppName))
+					if (!lpVolNameInfo->bOnlyDevName)
 					{
-						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Set failed. File(%wZ) Vol(%wZ)",
-							pFileName->Get(), lpVolNameInfo->AppName.Get());
+						if (!VolNameEx.Set(&lpVolNameInfo->AppName))
+						{
+							KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Set failed. File(%wZ) Vol(%wZ)",
+								pFileName->Get(), lpVolNameInfo->AppName.Get());
 
-						__leave;
+							__leave;
+						}
 					}
 
 					break;
@@ -1488,8 +1547,8 @@ BOOLEAN
 
 BOOLEAN
 	CFileName::GetSectorSize(
-	__in	CKrnlStr*	pFileName,
-	__inout ULONG*		pUlSectorSize
+	__in	CKrnlStr	*	pDevName,
+	__inout ULONG		*	pUlSectorSize
 	)
 {
 	BOOLEAN				bRet			= FALSE;
@@ -1504,10 +1563,10 @@ BOOLEAN
 	{
 		GetLock();
 
-		if (!pFileName || !pUlSectorSize)
+		if (!pDevName || !pUlSectorSize)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pFileName(%p) pUlSectorSize(%p)",
-				pFileName, pUlSectorSize);
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pFileName(%p) pUlSectorSize(%p)",
+				pDevName, pUlSectorSize);
 
 			__leave;
 		}
@@ -1515,7 +1574,7 @@ BOOLEAN
 		if (IsListEmpty(&ms_ListHead))
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. File(%wZ)",
-				pFileName->Get());
+				pDevName->Get());
 
 			__leave;
 		}
@@ -1526,7 +1585,7 @@ BOOLEAN
 			if (!lpVolNameInfo)
 			{
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. File(%wZ)",
-					pFileName->Get());
+					pDevName->Get());
 
 				__leave;
 			}
@@ -1534,7 +1593,7 @@ BOOLEAN
 			if (!VolNameEx.Set(&lpVolNameInfo->DevName))
 			{
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Set failed. File(%wZ) Vol(%wZ)",
-					pFileName->Get(), lpVolNameInfo->DevName.Get());
+					pDevName->Get(), lpVolNameInfo->DevName.Get());
 
 				__leave;
 			}
@@ -1542,14 +1601,14 @@ BOOLEAN
 			if (!VolNameEx.Append(L"\\*", wcslen(L"\\*")))
 			{
 				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Append failed. File(%wZ) Vol(%wZ)",
-					pFileName->Get(), VolNameEx.Get());
+					pDevName->Get(), VolNameEx.Get());
 
 				__leave;
 			}
 
 			if (FsRtlIsNameInExpression(
 				VolNameEx.Get(),
-				pFileName->Get(),
+				pDevName->Get(),
 				TRUE,
 				NULL
 				))
@@ -1590,11 +1649,11 @@ BOOLEAN
 */
 BOOLEAN
 	CFileName::ParseAppOrSymName(
-	__in	CKrnlStr*	pName,
-	__inout CKrnlStr*	pVolName,
-	__inout CKrnlStr*	pPartName,
-	__inout PBOOLEAN	pbDisk,
-	__inout	PNAME_TYPE	NameType
+	__in	CKrnlStr	*	pName,
+	__inout CKrnlStr	*	pVolName,
+	__inout CKrnlStr	*	pPartName,
+	__inout PBOOLEAN		pbDisk,
+	__inout PNAME_TYPE		pNameType
 	)
 {
 	BOOLEAN	bRet		= FALSE;
@@ -1604,9 +1663,11 @@ BOOLEAN
 
 	__try
 	{
-		if (!pName || !pVolName || !pPartName || !pbDisk || !NameType)
+		if (!pName || !pVolName || !pPartName || !pbDisk || !pNameType)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pName(%p) pVolName(%p) pPartName(%p) pbDisk(%p) pNameType(%p)",
+				pName, pVolName, pPartName, pbDisk, pNameType);
+
 			__leave;
 		}
 
@@ -1618,13 +1679,13 @@ BOOLEAN
 			__leave;
 		}
 
-		if ((*pVolName->GetString() >= L'a' && *pVolName->GetString() <= L'z')
+		if ((L'a' <= *pVolName->GetString() && L'z' >= *pVolName->GetString())
 			||
-			(*pVolName->GetString() >= L'A' && *pVolName->GetString() <= L'Z'))
+			(L'A' <= *pVolName->GetString() && L'Z' >= *pVolName->GetString()))
 		{
-			// R3
-			if (pVolName->GetLenCh() == 1)
+			if (1 == pVolName->GetLenCh())
 			{
+				// c
 				if (!pVolName->Append(L":", wcslen(L":")))
 				{
 					KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pVolName->Append failed. Name(%wZ)",
@@ -1632,18 +1693,13 @@ BOOLEAN
 
 					__leave;
 				}
-
-				*NameType = TYPE_APP;
+			
 				*pbDisk = TRUE;
-				bRet = TRUE;
-				__leave;
 			}
-			else if (pName->GetLenCh() == 2)
+			else if (2 == pName->GetLenCh())
 			{
-				*NameType = TYPE_APP;
+				// c:
 				*pbDisk = TRUE;
-				bRet = TRUE;
-				__leave;
 			}
 			else
 			{
@@ -1664,15 +1720,14 @@ BOOLEAN
 				}
 			}	
 
-			*NameType = TYPE_APP;
+			*pNameType = TYPE_APP;
 			bRet = TRUE;
 			__leave;
 		}
 
-		if (*(pVolName->GetString() + 1) == L'?')
+		if (L'?' == *(pVolName->GetString() + 1))
 		{
-			// Sym
-			if (pVolName->GetLenCh() == 5)
+			if (5 == pVolName->GetLenCh())
 			{
 				// \??\c
 				if (!pVolName->Append(L":", wcslen(L":")))
@@ -1685,14 +1740,14 @@ BOOLEAN
 
 				*pbDisk = TRUE;
 			}
-			else if (pVolName->GetLenCh() == 6)
+			else if (6 == pVolName->GetLenCh())
 			{
 				// \??\c:
 				*pbDisk = TRUE;
 			}
 			else
 			{
-				if (*(pVolName->GetString() + 6) == L'\\')
+				if (L'\\' == *(pVolName->GetString() + 6))
 				{
 					// \??\c:\	
 					if (!pVolName->Shorten(6))
@@ -1713,7 +1768,7 @@ BOOLEAN
 				}
 				else
 				{
-					if (pVolName->GetLenCh() <= 7)
+					if (7 >= pVolName->GetLenCh())
 					{
 						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pVolName len error. Name(%wZ)",
 							pVolName->Get());
@@ -1741,6 +1796,7 @@ BOOLEAN
 
 							__leave;
 						}
+
 						if (!pVolName->Shorten((USHORT)(pPosition - pVolName->GetString())))
 						{
 							KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pVolName->Shorten failed. Name(%wZ)",
@@ -1752,7 +1808,7 @@ BOOLEAN
 				}
 			}
 
-			*NameType = TYPE_SYM;
+			*pNameType = TYPE_SYM;
 			bRet = TRUE;
 		}
 	}
@@ -1781,7 +1837,7 @@ BOOLEAN
 	{
 		if (!pName || !pDevName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error. pName(%p) pDevName(%p)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pName(%p) pDevName(%p)",
 				pName, pDevName);
 
 			__leave;
@@ -1857,7 +1913,7 @@ BOOLEAN
 */
 LPVOLUME_NAME_INFO 
 	CFileName::GetVolNameInfoByVolAppName(
-	__in CKrnlStr* pName
+	__in CKrnlStr * pAppName
 	)
 {
 	LPVOLUME_NAME_INFO	lpVolNameInfo	= NULL;
@@ -1869,7 +1925,7 @@ LPVOLUME_NAME_INFO
 	{
 		GetLock();
 
-		if (!pName || !pName->Get())
+		if (!pAppName)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
@@ -1877,7 +1933,9 @@ LPVOLUME_NAME_INFO
 
 		if (IsListEmpty(&ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Can not get. Vol(%wZ)", pName->Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Can not get. Vol(%wZ)",
+				pAppName->Get());
+
 			__leave;
 		}
 
@@ -1886,13 +1944,15 @@ LPVOLUME_NAME_INFO
 			lpVolNameInfo = CONTAINING_RECORD(pNode, VOLUME_NAME_INFO, List);
 			if (!lpVolNameInfo)
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Vol(%wZ)", pName->Get());
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Vol(%wZ)",
+					pAppName->Get());
+
 				__leave;
 			}
 
 			if (!lpVolNameInfo->bOnlyDevName)
 			{
-				if (lpVolNameInfo->AppName.Equal(pName, TRUE))
+				if (lpVolNameInfo->AppName.Equal(pAppName, TRUE))
 					__leave;
 			}
 		}
@@ -1922,7 +1982,7 @@ LPVOLUME_NAME_INFO
 */
 LPVOLUME_NAME_INFO 
 	CFileName::GetVolNameInfoByVolSymName(
-	__in CKrnlStr* pName
+	__in CKrnlStr * pName
 	)
 {
 	LPVOLUME_NAME_INFO	lpVolNameInfo	= NULL;
@@ -1934,7 +1994,7 @@ LPVOLUME_NAME_INFO
 	{
 		GetLock();
 
-		if (!pName || !pName->Get())
+		if (!pName)
 		{
 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input argument error");
 			__leave;
@@ -1942,7 +2002,9 @@ LPVOLUME_NAME_INFO
 
 		if (IsListEmpty(&ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Can not get. Vol(%wZ)", pName->Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"List empty. Can not get. Vol(%wZ)",
+				pName->Get());
+
 			__leave;
 		}
 
@@ -1951,7 +2013,9 @@ LPVOLUME_NAME_INFO
 			lpVolNameInfo = CONTAINING_RECORD(pNode, VOLUME_NAME_INFO, List);
 			if (!lpVolNameInfo)
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Vol(%wZ)", pName->Get());
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Vol(%wZ)",
+					pName->Get());
+
 				__leave;
 			}
 
@@ -1986,7 +2050,7 @@ LPVOLUME_NAME_INFO
 */
 LPVOLUME_NAME_INFO 
 	CFileName::GetVolNameInfo(
-	__in CKrnlStr*		pName,
+	__in CKrnlStr	*	pName,
 	__in NAME_TYPE		NameType
 	)
 {
@@ -2011,7 +2075,9 @@ LPVOLUME_NAME_INFO
 
 		if (IsListEmpty(&FileName.ms_ListHead))
 		{
-			// KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. Name(%wZ)",
+				pName->Get());
+
 			__leave;
 		}
 
@@ -2023,22 +2089,27 @@ LPVOLUME_NAME_INFO
 			lpVolNameInfo = CONTAINING_RECORD(pNode, VOLUME_NAME_INFO, List);
 			if (!lpVolNameInfo)
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed");
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"CONTAINING_RECORD failed. Name(%wZ)",
+					pName->Get());
+
 				__leave;
 			}
 
 			if (!FlagOn(NameType, TYPE_FULL_PATH))
 			{
-				if (FlagOn(NameType, TYPE_APP))
+				if (!lpVolNameInfo->bOnlyDevName)
 				{
-					if (lpVolNameInfo->AppName.Equal(pName, TRUE))
-						__leave;
-				}
+					if (FlagOn(NameType, TYPE_APP))
+					{
+						if (lpVolNameInfo->AppName.Equal(pName, TRUE))
+							__leave;
+					}
 
-				if (FlagOn(NameType, TYPE_SYM))
-				{
-					if (lpVolNameInfo->SymName.Equal(pName, TRUE))
-						__leave;
+					if (FlagOn(NameType, TYPE_SYM))
+					{
+						if (lpVolNameInfo->SymName.Equal(pName, TRUE))
+							__leave;
+					}
 				}
 
 				if (FlagOn(NameType, TYPE_DEV))
@@ -2049,57 +2120,70 @@ LPVOLUME_NAME_INFO
 			}
 			else
 			{
-				if (FlagOn(NameType, TYPE_APP))
+				if (!lpVolNameInfo->bOnlyDevName)
 				{
-					if (!VolNameEx.Set(&lpVolNameInfo->AppName))
+					if (FlagOn(NameType, TYPE_APP))
 					{
-						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Set failed. Name(%wZ)", pName->Get());
-						__leave;
+						if (!VolNameEx.Set(&lpVolNameInfo->AppName))
+						{
+							KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[TYPE_APP] VolNameEx.Set failed. Name(%wZ)",
+								lpVolNameInfo->AppName.Get());
+
+							__leave;
+						}
+
+						if (!VolNameEx.Append(L"*", wcslen(L"*")))
+						{
+							KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[TYPE_APP] VolNameEx.Append failed. Name(%wZ)",
+								VolNameEx.Get());
+
+							__leave;
+						}
+
+						if (FsRtlIsNameInExpression(
+							VolNameEx.Get(),
+							pName->Get(),
+							TRUE,
+							NULL
+							))
+							__leave;
 					}
 
-					if (!VolNameEx.Append(L"*", wcslen(L"*")))
+					if (FlagOn(NameType, TYPE_SYM))
 					{
-						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Append failed. Name(%wZ)", VolNameEx.Get());
-						__leave;
+						if (!VolNameEx.Set(&lpVolNameInfo->SymName))
+						{
+							KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[TYPE_SYM] VolNameEx.Set failed. Name(%wZ)",
+								lpVolNameInfo->SymName.Get());
+
+							__leave;
+						}
+
+						if (!VolNameEx.Append(L"*", wcslen(L"*")))
+						{
+							KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[TYPE_SYM] VolNameEx.Append failed. Name(%wZ)",
+								VolNameEx.Get());
+
+							__leave;
+						}
+
+						if (FsRtlIsNameInExpression(
+							VolNameEx.Get(),
+							pName->Get(),
+							TRUE,
+							NULL
+							))
+							__leave;
 					}
-
-					if (FsRtlIsNameInExpression(
-						VolNameEx.Get(),
-						pName->Get(),
-						TRUE,
-						NULL
-						))
-						__leave;
-				}
-
-				if (FlagOn(NameType, TYPE_SYM))
-				{
-					if (!VolNameEx.Set(&lpVolNameInfo->SymName))
-					{
-						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Set failed. Name(%wZ)", pName->Get());
-						__leave;
-					}
-
-					if (!VolNameEx.Append(L"*", wcslen(L"*")))
-					{
-						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Append failed. Name(%wZ)", VolNameEx.Get());
-						__leave;
-					}
-
-					if (FsRtlIsNameInExpression(
-						VolNameEx.Get(),
-						pName->Get(),
-						TRUE,
-						NULL
-						))
-						__leave;
 				}
 
 				if (FlagOn(NameType, TYPE_DEV))
 				{
 					if (!VolNameEx.Set(&lpVolNameInfo->DevName))
 					{
-						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Set failed. Name(%wZ)", pName->Get());
+						KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[TYPE_DEV] VolNameEx.Set failed. Name(%wZ)",
+							lpVolNameInfo->DevName.Get());
+
 						__leave;
 					}
 
@@ -2112,7 +2196,9 @@ LPVOLUME_NAME_INFO
 					{
 						if (!VolNameEx.Append(L"\\*", wcslen(L"\\*")))
 						{
-							KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"VolNameEx.Append failed. Name(%wZ)", VolNameEx.Get());
+							KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"[TYPE_DEV] VolNameEx.Append failed. Name(%wZ)",
+								VolNameEx.Get());
+
 							__leave;
 						}
 
@@ -2159,16 +2245,12 @@ BOOLEAN
 {
 	BOOLEAN				bRet			= FALSE;
 
-	CKrnlStr			VolAppName;
-	CKrnlStr			VolSymName;
-	CKrnlStr			VolDevName;
 	CKrnlStr			TmpName;
 
 	CFileName			FileName;
 
 	LPVOLUME_NAME_INFO	lpVolNameInfo	= NULL;
 	USHORT				usCutOffset		= 0;
-	BOOLEAN				bInsertNew		= FALSE;
 
 
 	__try
@@ -2177,19 +2259,25 @@ BOOLEAN
 
 		if (!pName || !pAppName)
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input parameter error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"input arguments error. pName(%p) pAppName(%p)",
+				pName, pAppName);
+
 			__leave;
 		}
 
 		if (!TmpName.Set(pName))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpName.Set failed. File(%wZ)", pName->Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpName.Set failed. File(%wZ)",
+				pName->Get());
+
 			__leave;
 		}
 
 		if (!TmpName.Shorten(4))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpName.Shorten failed. File(%wZ)", TmpName.Get());
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"TmpName.Shorten failed. File(%wZ)",
+				TmpName.Get());
+
 			__leave;
 		}
 
@@ -2198,7 +2286,9 @@ BOOLEAN
 			// 符号连接名
 			if (!pAppName->Set(pName->GetString() + 4, pName->GetLenCh() - 4))
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Set failed. File(%wZ)", pName->Get());
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Set failed. File(%wZ)",
+					pName->Get());
+
 				__leave;
 			}
 
@@ -2216,30 +2306,23 @@ BOOLEAN
 			__leave;
 		}
 		else
-			usCutOffset = lpVolNameInfo->DevName.GetLenB();
+			usCutOffset = lpVolNameInfo->DevName.GetLenCh();
 
-		if (bInsertNew)
+		if (!pAppName->Set(&lpVolNameInfo->AppName))
 		{
-			if (!pAppName->Set(&VolAppName))
-			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Set failed. Vol(%wZ)", VolAppName.Get());
-				__leave;
-			}
-		}
-		else
-		{
-			if (!pAppName->Set(&lpVolNameInfo->AppName))
-			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Set failed. Vol(%wZ)", lpVolNameInfo->AppName.Get());
-				__leave;
-			}
+			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Set failed. Vol(%wZ)",
+				lpVolNameInfo->AppName.Get());
+
+			__leave;
 		}
 
 		if (pName->GetLenB() > usCutOffset)
 		{
-			if (!pAppName->Append(pName->GetString() + usCutOffset / sizeof(WCHAR), pName->GetLenCh() - usCutOffset / sizeof(WCHAR)))
+			if (!pAppName->Append(pName->GetString() + usCutOffset, pName->GetLenCh() - usCutOffset))
 			{
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Append failed. File(%wZ)", pName->Get());
+				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"pAppName->Append failed. File(%wZ)",
+					pName->Get());
+
 				__leave;
 			}
 		}

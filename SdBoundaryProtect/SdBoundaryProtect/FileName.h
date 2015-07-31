@@ -112,7 +112,7 @@ public:
 		GetFileFullPath(
 		__in	PFLT_CALLBACK_DATA		pData,
 		__in	PFLT_VOLUME				pFltVol,
-		__out	CKrnlStr			*	pName
+		__out	CKrnlStr			*	pDevName
 		);
 
 	/*
@@ -162,7 +162,7 @@ public:
 		BOOLEAN
 		GetVolDevNameFromFltVol(
 		__in	PFLT_VOLUME		pFltVol,
-		__out	CKrnlStr	*	pName
+		__out	CKrnlStr	*	pDevName
 		);
 
 	/*++
@@ -207,32 +207,32 @@ public:
 	--*/
 	BOOLEAN
 		InsertVolNameInfo(
-		__in_opt	CKrnlStr*		pAppName,
-		__in_opt	CKrnlStr*		pSymName,
-		__in		CKrnlStr*		pDevName,
-		__in		BOOLEAN			bOnlyDevName,
-		__in		BOOLEAN			bRemoveable,
-		__in		PFLT_INSTANCE	pFltInstance,
-		__in		ULONG			ulSectorSize
+		__in_opt	CKrnlStr		*	pAppName,
+		__in_opt	CKrnlStr		*	pSymName,
+		__in		CKrnlStr		*	pDevName,
+		__in		BOOLEAN				bOnlyDevName,
+		__in		BOOLEAN				bRemoveable,
+		__in		PFLT_INSTANCE		pFltInstance,
+		__in		ULONG				ulSectorSize
 		);
 
 	BOOLEAN
 		DelVolNameInfo(
-		__in CKrnlStr* pDevName
+		__in CKrnlStr * pDevName
 		);
 
 	static
 		BOOLEAN
 		SpliceFilePath(
-		__in	CKrnlStr*	pDirPath,
-		__in	CKrnlStr*	pFileName,
-		__inout	CKrnlStr*	pFilePath
+		__in	CKrnlStr * pDirPath,
+		__in	CKrnlStr * pFileName,
+		__inout	CKrnlStr * pFilePath
 		);
 
 	LPVOLUME_NAME_INFO
 		GetVolNameInfo(
-		__in CKrnlStr*	pName,
-		__in NAME_TYPE	NameType
+		__in CKrnlStr	*	pName,
+		__in NAME_TYPE		NameType
 		);
 
 	/*
@@ -253,7 +253,7 @@ public:
 	BOOLEAN
 		IsVolume(
 		__in PFLT_CALLBACK_DATA		pData,
-		__in CKrnlStr			*	pFileName
+		__in CKrnlStr			*	pDevName
 		);
 
 	/*
@@ -278,23 +278,23 @@ public:
 		__in	PFLT_CALLBACK_DATA		pData,
 		__in	PCFLT_RELATED_OBJECTS	pFltObjects,
 		__in	HANDLE					hFile,
-		__out	CKrnlStr			*	pFileName
+		__out	CKrnlStr			*	pDevName
 		);
 
 	static
 		BOOLEAN
 		IsExpression(
-		__in CKrnlStr* pFileName
+		__in CKrnlStr * pFileName
 		);
 
 	static
 		BOOLEAN
 		ParseAppOrSymName(
-		__in	CKrnlStr*	pName,
-		__inout CKrnlStr*	pVolName,
-		__inout CKrnlStr*	pPartName,
-		__inout PBOOLEAN	pbDisk,
-		__inout PNAME_TYPE	pNameType
+		__in	CKrnlStr	*	pName,
+		__inout CKrnlStr	*	pVolName,
+		__inout CKrnlStr	*	pPartName,
+		__inout PBOOLEAN		pbDisk,
+		__inout PNAME_TYPE		pNameType
 		);
 
 	/*++
@@ -329,30 +329,30 @@ public:
 	--*/
 	BOOLEAN
 		IsDisMountStandard(
-		__in CKrnlStr*		pVolDevName,
-		__in PFLT_INSTANCE	pFltInstance
+		__in CKrnlStr		*	pVolDevName,
+		__in PFLT_INSTANCE		pFltInstance
 		);
 
 	static
 		BOOLEAN
 		GetVolAppNameByQueryObj(
-		__in	CKrnlStr*	pName,
-		__inout CKrnlStr*	pAppName,
+		__in	CKrnlStr *	pName,
+		__inout CKrnlStr *	pAppName,
 		__inout PUSHORT		pusCutOffset
 		);
 
 
 	BOOLEAN
 		GetFltInstance(
-		__in	CKrnlStr*		pFileName,
-		__out	PFLT_INSTANCE*	pPFltInstance,
-		__in	NAME_TYPE		NameType = TYPE_DEV
+		__in	CKrnlStr		*	pFileName,
+		__out	PFLT_INSTANCE	*	pPFltInstance,
+		__in	NAME_TYPE			NameType
 		);
 
 	BOOLEAN
 		GetSectorSize(
-		__in	CKrnlStr*	pFileName,
-		__inout ULONG*		pUlSectorSize
+		__in	CKrnlStr	*	pDevName,
+		__inout ULONG		*	pUlSectorSize
 		);
 
 private:
@@ -398,17 +398,17 @@ private:
 
 	LPVOLUME_NAME_INFO
 		GetVolNameInfoByVolAppName(
-		__in CKrnlStr* pName
+		__in CKrnlStr * pAppName
 		);
 
 	LPVOLUME_NAME_INFO
 		GetVolNameInfoByVolSymName(
-		__in CKrnlStr* pName
+		__in CKrnlStr * pSymName
 		);
 
 	LPVOLUME_NAME_INFO
 		GetVolNameInfoByVolDevName(
-		__in CKrnlStr* pName
+		__in CKrnlStr * pDevName
 		);
 
 	/*
