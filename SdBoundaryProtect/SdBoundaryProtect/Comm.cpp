@@ -490,7 +490,10 @@ NTSTATUS
 				*pulReturnOutputBufferLength = DirControlList.GetCount();
 
 				if (!lpReplyPacket || (lpReplyPacket->ulCount < *pulReturnOutputBufferLength))
+				{
+					ntStatus = STATUS_SUCCESS;
 					__leave;
+				}
 
 				if (!DirControlList.Fill(lpReplyPacket->CommInfo, *pulReturnOutputBufferLength))
 				{
@@ -505,7 +508,10 @@ NTSTATUS
 				*pulReturnOutputBufferLength = ProcWhiteList.GetCount();
 
 				if (!lpReplyPacket || (lpReplyPacket->ulCount < *pulReturnOutputBufferLength))
+				{
+					ntStatus = STATUS_SUCCESS;
 					__leave;
+				}
 
 				if (!ProcWhiteList.Fill(lpReplyPacket->CommInfo, *pulReturnOutputBufferLength))
 				{

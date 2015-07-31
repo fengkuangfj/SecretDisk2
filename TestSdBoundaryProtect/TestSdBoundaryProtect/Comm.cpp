@@ -124,7 +124,7 @@ BOOL
 		}
 	
 		hResult = FilterSendMessage(
-			ms_CommContext.hServerPort, 
+			ms_CommContext.hServerPort,
 			&RequstPacket,
 			ulRequestPacketSize,
 			lpReplyPacket,
@@ -133,36 +133,6 @@ BOOL
 			);
 		if (S_OK != hResult)
 		{
-			switch (RequstPacket.ulType)
-			{
-			case IOCTL_UM_START:
-			case IOCTL_UM_STOP:
-			case IOCTL_UM_DIR_ADD:
-			case IOCTL_UM_DIR_DELETE:
-			case IOCTL_UM_DIR_CLEAR:
-			case IOCTL_UM_PROC_ADD:
-			case IOCTL_UM_PROC_DELETE:
-			case IOCTL_UM_PROC_CLEAR:
-				break;
-			case IOCTL_UM_DIR_GET:
-			case IOCTL_UM_PROC_GET:
-				{
-					if (!pulRetCount)
-					{
-						printf("pulRetCount error. \n");
-						__leave;
-					}
-
-					*pulRetCount = dwRet;
-					__leave;
-				}			
-			default:
-				{
-					printf("RequstPacket.ulType error. (0x%08x) \n", RequstPacket.ulType);
-					__leave;
-				}
-			}
-
 			printf("FilterSendMessage failed. (0x%08x) \n", hResult);
 			__leave;
 		}
@@ -181,6 +151,16 @@ BOOL
 		case IOCTL_UM_DIR_GET:
 		case IOCTL_UM_PROC_GET:
 			{
+				if (!pulRetCount)
+				{
+					printf("pulRetCount error. \n");
+					__leave;
+				}
+
+				*pulRetCount = dwRet;
+				if (!lpOutCommInfo || (ulOutCommInfoCount < *pulRetCount))
+					__leave;
+
 				for (; i < ulOutCommInfoCount; i++)
 					CopyMemory(lpOutCommInfo + i, lpReplyPacket->CommInfo + i, sizeof(COMM_INFO));
 

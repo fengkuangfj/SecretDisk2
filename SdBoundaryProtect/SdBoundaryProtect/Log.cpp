@@ -693,7 +693,7 @@ BOOLEAN
 
 		if (!ms_pLogFile || !ms_pLogFile->GetLenCh())
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile error");
+			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEEDNOT, L"ms_pLogFile error");
 			__leave;
 		}
 

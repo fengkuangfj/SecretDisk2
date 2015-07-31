@@ -175,14 +175,17 @@ BOOLEAN
 				__leave;
 			}
 
-			KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"Pid(%d)",
-				lpProcProtectInfo->ulPid);
+			if (lpProcProtectInfo->ulPid)
+			{
+				KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"Pid(%d)",
+					lpProcProtectInfo->ulPid);
 
-			RemoveEntryList(&lpProcProtectInfo->List);
-			delete lpProcProtectInfo;
-			lpProcProtectInfo = NULL;
+				RemoveEntryList(&lpProcProtectInfo->List);
+				delete lpProcProtectInfo;
+				lpProcProtectInfo = NULL;
 
-			ms_ulCount--;
+				ms_ulCount--;
+			}
 		}
 
 		bRet = TRUE;
@@ -595,6 +598,9 @@ BOOLEAN
 			}
 
 			lpCommInfo->Proc.ulPid = lpProcProtectInfo->ulPid;
+
+			KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"Pid(%d)",
+				lpProcProtectInfo->ulPid);
 
 			lpCommInfo++;
 		}

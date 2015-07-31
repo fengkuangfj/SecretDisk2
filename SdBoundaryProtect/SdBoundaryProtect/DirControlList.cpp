@@ -609,8 +609,8 @@ BOOLEAN
 
 		if (IsListEmpty(&ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. File(%wZ)",
-				pFileName->Get());
+// 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. File(%wZ)",
+// 				pFileName->Get());
 
 			__leave;
 		}
@@ -711,7 +711,6 @@ BOOLEAN
 				__leave;
 			}
 			GetLock();
-			break;
 		}
 
 		bRet = TRUE;
@@ -750,8 +749,8 @@ BOOLEAN
 
 		if (IsListEmpty(&ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. File(%wZ)",
-				pFileName->Get());
+// 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. File(%wZ)",
+// 				pFileName->Get());
 
 			__leave;
 		}
@@ -908,6 +907,9 @@ BOOLEAN
 			}
 
 			RtlCopyMemory(lpCommInfo->Dir.wchFileName, AppName.GetString(), AppName.GetLenB());
+
+			KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"Rule(%wZ) Type(0x%08x)",
+				lpDirControlList->RuleEx.Get(), lpDirControlList->Type);
 
 			lpCommInfo++;
 		}

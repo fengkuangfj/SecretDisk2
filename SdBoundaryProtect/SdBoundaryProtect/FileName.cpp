@@ -2033,8 +2033,11 @@ LPVOLUME_NAME_INFO
 				__leave;
 			}
 
-			if (lpVolNameInfo->SymName.Equal(pName, TRUE))
-				__leave;
+			if (!lpVolNameInfo->bOnlyDevName)
+			{
+				if (lpVolNameInfo->SymName.Equal(pName, TRUE))
+					__leave;
+			}
 		}
 	}
 	__finally
@@ -2089,7 +2092,7 @@ LPVOLUME_NAME_INFO
 
 		if (IsListEmpty(&FileName.ms_ListHead))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"list empty. Name(%wZ)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"list empty. Name(%wZ)",
 				pName->Get());
 
 			__leave;

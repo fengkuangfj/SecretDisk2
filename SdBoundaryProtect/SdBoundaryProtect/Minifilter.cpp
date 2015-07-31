@@ -123,7 +123,7 @@ NTSTATUS
 	UNREFERENCED_PARAMETER(RegistryPath);
 
 
-	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"\nbegin");
+	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"begin");
 
 	__try
 	{
@@ -376,7 +376,7 @@ NTSTATUS
 		CMinifilter::ms_pMfIns = NULL;
 	}
 
-	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"end");
+	KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"end \n");
 
 	return STATUS_SUCCESS;
 }
@@ -469,14 +469,14 @@ NTSTATUS
 			// an allocated name buffer.  If not, it will be NULL
 			ntStatus = RtlVolumeDeviceToDosName(pDevObj, &ustrDosName);
 			if (!NT_SUCCESS(ntStatus))
-				KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"RtlVolumeDeviceToDosName failed. (%x)",
+				KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"RtlVolumeDeviceToDosName failed. (%x)",
 				ntStatus);
 			else
 				KdPrintKrnl(LOG_PRINTF_LEVEL_INFO, LOG_RECORED_LEVEL_NEED, L"DosName(%wZ)",
 				&ustrDosName);
 		}
 		else
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"FltGetDiskDeviceObject failed. (%x)",
+			KdPrintKrnl(LOG_PRINTF_LEVEL_WARNING, LOG_RECORED_LEVEL_NEED, L"FltGetDiskDeviceObject failed. (%x)",
 			ntStatus);
 
 		//  If we could not get a DOS name, get the NT name.
@@ -1052,8 +1052,8 @@ FLT_POSTOP_CALLBACK_STATUS
 
 		if (!DirControlList.Filter(&lpPrePostDirCtx->FileName, Data))
 		{
-			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DirControlList.Filter failed. File(%wZ)",
-				lpPrePostDirCtx->FileName.Get());
+// 			KdPrintKrnl(LOG_PRINTF_LEVEL_ERROR, LOG_RECORED_LEVEL_NEED, L"DirControlList.Filter failed. File(%wZ)",
+// 				lpPrePostDirCtx->FileName.Get());
 
 			__leave;
 		}
